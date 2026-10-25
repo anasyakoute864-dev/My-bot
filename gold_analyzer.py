@@ -20,8 +20,16 @@ PIVOT_N = 3                # عدد الشموع لتحديد القمم/الق�
 MIN_SCORE = 5              # أقل نقطة باش نعطيك صفقة
 MIN_RR = 1.5               # أقل نسبة ربح/خسارة
 FRED_KEY = os.getenv("FRED_API_KEY", "")
-# تواريخ/ساعات الأخبار القوية (FOMC, CPI, NFP) بتوقيت UTC: "2026-11-04 19:00"
-NEWS_BLACKOUT = []
+# تواريخ/ساعات الأخبار القوية بتوقيت UTC (البوت ما كيدخلش ساعة قبل وساعة بعد)
+# المصادر: federalreserve.gov (FOMC) و bls.gov/schedule (CPI, NFP). تأكد منها من وقت لآخر، وزيد 2027 فآخر السنة.
+NEWS_BLACKOUT = [
+    "2026-10-28 18:00",  # FOMC قرار الفايدة (2:00 PM ET)
+    "2026-11-06 13:30",  # NFP تقرير الوظائف (8:30 AM ET)
+    "2026-11-10 13:30",  # CPI التضخم
+    "2026-12-04 13:30",  # NFP
+    "2026-12-09 19:00",  # FOMC (2:00 PM ET)
+    "2026-12-10 13:30",  # CPI
+]
 
 
 # ---------------------------------------------------------------- بيانات
@@ -35,14 +43,19 @@ def drop_unclosed(df, interval):
     return df
 
 
-def get_data(interval, period):
-    df = yf.download(SYMBOL, interval=interval, period=period, auto_adjust=False, progress=False)
+def prepare(df, interval):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.rename(columns=str.lower).dropna()
     df = drop_unclosed(df, interval)
     df["atr"] = atr(df)
+    df["time"] = df.index          # وقت الشمعة (كيحتاجو الـ backtest)
     return df.dropna(subset=["atr"]).reset_index(drop=True)
+
+
+def get_data(interval, period):
+    df = yf.download(SYMBOL, interval=interval, period=period, auto_adjust=False, progress=False)
+    return prepare(df, interval)
 
 
 def atr(df, n=14):
@@ -240,8 +253,8 @@ def macro_bias():
     return max(-2, min(2, score)), notes
 
 
-def news_blocked():
-    now = pd.Timestamp.now(tz="UTC")
+def news_blocked(now=None):
+    now = now if now is not None else pd.Timestamp.now(tz="UTC")
     for t in NEWS_BLACKOUT:
         ts = pd.Timestamp(t, tz="UTC")
         if abs((now - ts).total_seconds()) < 3600 * 1.0:
@@ -250,9 +263,10 @@ def news_blocked():
 
 
 # ---------------------------------------------------------------- القرار
-def analyze():
-    df = get_data(ENTRY_TF, "60d")
-    dd = get_data(HTF, "1y")
+def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
+    """منطق القرار لوحدو (بلا تحميل بيانات). كيستعملو البوت الحي والـ backtest."""
+    out = print if verbose else (lambda *args, **kwargs: None)
+    macro_notes = macro_notes or []
     price, a = df["close"].iloc[-1], df["atr"].iloc[-1]
 
     d_trend, _, _ = market_structure(dd)
@@ -263,7 +277,6 @@ def analyze():
     sweep = find_sweep(df, pv)
     bo, bo_lvl = breakout(df)
     fib = fib_zone(df, pv)
-    macro, macro_notes = macro_bias()
 
     score, why, items = 0.0, [], []
 
@@ -295,26 +308,26 @@ def analyze():
         add(1 * fib["dir"], f"السعر فمنطقة ريتريس 0.5-0.786 [{fib['zone'][0]:.1f}-{fib['zone'][1]:.1f}]")
     add(macro, "الماكرو (تضخم/بطالة/فيدرالي/دولار/عوائد)")
 
-    print("=" * 60)
-    print(f"الذهب ({SYMBOL})  السعر: {price:.2f}   ATR: {a:.2f}")
-    print("=" * 60)
+    out("=" * 60)
+    out(f"الذهب ({SYMBOL})  السعر: {price:.2f}   ATR: {a:.2f}")
+    out("=" * 60)
     for w in why:
-        print(w)
-    print("-" * 60)
+        out(w)
+    out("-" * 60)
     for n in macro_notes:
-        print("•", n)
-    print("-" * 60)
-    print(f"مجموع النقاط: {score:+.1f}  (الحد الأدنى للصفقة ±{MIN_SCORE})")
+        out("•", n)
+    out("-" * 60)
+    out(f"مجموع النقاط: {score:+.1f}  (الحد الأدنى للصفقة ±{MIN_SCORE})")
 
     res = {"price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
-    blocked = news_blocked()
+    blocked = news_blocked(now)
     if blocked:
-        print(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
+        out(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
         res.update(decision="blocked", blocked=blocked)
         return res
     if abs(score) < MIN_SCORE:
-        print("⏸  القرار: ما كاينش setup واضح. استنى.")
+        out("⏸  القرار: ما كاينش setup واضح. استنى.")
         return res
 
     side = 1 if score > 0 else -1
@@ -344,20 +357,27 @@ def analyze():
             tp1 = tz
     rr = abs(tp1 - price) / risk
     if rr < MIN_RR:
-        print(f"⏸  RR ضعيف ({rr:.2f}) -> ما ندخلش.")
+        out(f"⏸  RR ضعيف ({rr:.2f}) -> ما ندخلش.")
         res.update(decision="weak_rr", rr=float(rr))
         return res
 
-    print(f"✅ القرار: {'BUY (شراء)' if side==1 else 'SELL (بيع)'}")
-    print(f"   دخول  : {price:.2f}  (ولا ريتريس لـ {price - side*0.3*a:.2f})")
-    print(f"   Stop  : {sl:.2f}   (مخاطرة {risk:.2f} نقطة)")
-    print(f"   TP1   : {tp1:.2f}  (RR {rr:.2f}) -> سكّر النص وحرّك الستوب لنقطة الدخول")
-    print(f"   TP2   : {tp3:.2f}  (RR 3.0)")
-    print("   خاطر 0.5%-1% كحد أقصى من الحساب فكل صفقة.")
+    out(f"✅ القرار: {'BUY (شراء)' if side==1 else 'SELL (بيع)'}")
+    out(f"   دخول  : {price:.2f}  (ولا ريتريس لـ {price - side*0.3*a:.2f})")
+    out(f"   Stop  : {sl:.2f}   (مخاطرة {risk:.2f} نقطة)")
+    out(f"   TP1   : {tp1:.2f}  (RR {rr:.2f}) -> سكّر النص وحرّك الستوب لنقطة الدخول")
+    out(f"   TP2   : {tp3:.2f}  (RR 3.0)")
+    out("   خاطر 0.5%-1% كحد أقصى من الحساب فكل صفقة.")
     res.update(decision="trade", side=side, entry=float(price), sl=float(sl), tp1=float(tp1),
                tp2=float(tp3), rr=float(rr), risk=float(risk),
                entry2=float(price - side * 0.3 * a))
     return res
+
+
+def analyze():
+    df = get_data(ENTRY_TF, "60d")
+    dd = get_data(HTF, "1y")
+    macro, macro_notes = macro_bias()
+    return evaluate(df, dd, macro, macro_notes)
 
 
 if __name__ == "__main__":

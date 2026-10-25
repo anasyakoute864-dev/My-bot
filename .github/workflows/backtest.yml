@@ -1,0 +1,36 @@
+name: gold-backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "خطوة الشموع (1 = كل شمعة، 3 = أسرع)"
+        default: "1"
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install yfinance pandas numpy requests
+
+      - name: Run backtest
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python backtest.py "${{ github.event.inputs.step || '1' }}"
+
+      - name: Save trades
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-trades
+          path: trades.csv
+          if-no-files-found: ignore
