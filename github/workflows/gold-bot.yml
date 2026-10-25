@@ -1,0 +1,34 @@
+name: gold-signals
+
+on:
+  schedule:
+    - cron: "*/15 * * * 0-5"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install yfinance pandas numpy requests
+
+      - name: Restore last signal
+        uses: actions/cache@v4
+        with:
+          path: last_signal.json
+          key: last-signal-${{ github.run_id }}
+          restore-keys: last-signal-
+
+      - name: Run bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ALWAYS_SEND: "1"
+        run: python gold_bot.py
