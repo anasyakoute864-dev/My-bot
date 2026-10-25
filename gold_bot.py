@@ -6,6 +6,7 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 STATE = "last_signal.json"
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
+LINE = "━━━━━━━━━━"
 
 
 def send(text):
@@ -31,30 +32,91 @@ def load_last():
     return last
 
 
+def reasons(items):
+    """الأسباب اللي عندها تأثير فقط (بلا الأصفار)، كل سبب فسطر قصير"""
+    out = []
+    for v, txt in items:
+        if abs(v) < 0.05:
+            continue
+        out.append(f"{'🟢' if v > 0 else '🔴'} {txt} ({v:+.1f})")
+    return out
+
+
+def macro_lines(notes):
+    return [f"• {n}" for n in notes if "FRED_API_KEY" not in n]
+
+
+def build_message(r, new_signal=False):
+    price = f"{r['price']:.2f}"
+    score = f"{r['score']:+.1f}"
+    limit = f"±{r['min_score']}"
+    why = reasons(r["items"])
+    macro = macro_lines(r["macro_notes"])
+
+    if r["decision"] == "trade":
+        buy = r["side"] == 1
+        title = "🟢 شراء BUY" if buy else "🔴 بيع SELL"
+        lines = []
+        if new_signal:
+            lines.append("🔔 إشارة جديدة")
+        lines += [
+            f"🥇 الذهب | {title}",
+            LINE,
+            f"💰 السعر: {price}",
+            f"🎯 الدخول: {r['entry']:.2f}",
+            f"🛑 الستوب: {r['sl']:.2f}",
+            f"✅ الهدف 1: {r['tp1']:.2f} (RR {r['rr']:.1f})",
+            f"🏁 الهدف 2: {r['tp2']:.2f} (RR 3.0)",
+            LINE,
+            f"📊 النقاط: {score} (الحد {limit})",
+        ]
+        if why:
+            lines += ["", "الأسباب:"] + why
+        lines += ["", "⚠️ خاطر 0.5% - 1% فقط من الحساب فكل صفقة."]
+        return "\n".join(lines)
+
+    if r["decision"] == "blocked":
+        status = f"⛔ خبر قوي قريب ({r.get('blocked')} UTC)، ما كاينش دخول"
+    elif r["decision"] == "weak_rr":
+        status = f"⏸ الصفقة ضعيفة (RR {r.get('rr', 0):.1f})، ما ندخلش"
+    else:
+        status = "⏸ ما كاينش setup واضح، استنى"
+    lines = [
+        f"🥇 الذهب | {status}",
+        LINE,
+        f"💰 السعر: {price}",
+        f"📊 النقاط: {score} (الحد {limit})",
+    ]
+    if why:
+        lines += ["", "الأسباب:"] + why
+    if macro:
+        lines += ["", "الماكرو:"] + macro
+    return "\n".join(lines)
+
+
 def main():
     if not TOKEN or not CHAT_ID:
         sys.exit("TOKEN / CHAT_ID ناقصين")
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ga.analyze()
+            result = ga.analyze()
     except Exception:
-        send("خطأ فالتحليل:\n" + traceback.format_exc()[-800:])
+        send("⚠️ خطأ فالتحليل:\n" + traceback.format_exc()[-800:])
         raise
-    text = buf.getvalue()
-    print(text)
+    print(buf.getvalue())
 
     # الإشارة = الاتجاه فقط (BUY/SELL). السعر كيتبدل كل مرة، ما خاصوش يدخل فالمقارنة
     signal = None
-    for line in text.splitlines():
-        if "القرار" in line and ("BUY" in line or "SELL" in line):
-            signal = "BUY" if "BUY" in line else "SELL"
+    if result and result.get("decision") == "trade":
+        signal = "BUY" if result["side"] == 1 else "SELL"
 
     last = load_last()
-    if signal and signal != last:
-        send("🔔 إشارة جديدة\n\n" + text)
-    elif ALWAYS_SEND:
-        send(text)
+    if result:
+        if signal and signal != last:
+            send(build_message(result, new_signal=True))
+        elif ALWAYS_SEND:
+            send(build_message(result))
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:

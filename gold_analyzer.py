@@ -254,12 +254,13 @@ def analyze():
     fib = fib_zone(df, pv)
     macro, macro_notes = macro_bias()
 
-    score, why = 0.0, []
+    score, why, items = 0.0, [], []
 
     def add(v, txt):
         nonlocal score
         score += v
         why.append(f"{v:+.1f}  {txt}")
+        items.append((float(v), txt))
 
     add(2 * d_trend, f"هيكل الفريم اليومي: {['نازل','محايد','صاعد'][d_trend+1]}")
     add(1 * trend, f"هيكل فريم {ENTRY_TF}: {['نازل','محايد','صاعد'][trend+1]}")
@@ -294,13 +295,16 @@ def analyze():
     print("-" * 60)
     print(f"مجموع النقاط: {score:+.1f}  (الحد الأدنى للصفقة ±{MIN_SCORE})")
 
+    res = {"price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
+           "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
     blocked = news_blocked()
     if blocked:
         print(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
-        return
+        res.update(decision="blocked", blocked=blocked)
+        return res
     if abs(score) < MIN_SCORE:
         print("⏸  القرار: ما كاينش setup واضح. استنى.")
-        return
+        return res
 
     side = 1 if score > 0 else -1
     # Stop Loss
@@ -330,7 +334,8 @@ def analyze():
     rr = abs(tp1 - price) / risk
     if rr < MIN_RR:
         print(f"⏸  RR ضعيف ({rr:.2f}) -> ما ندخلش.")
-        return
+        res.update(decision="weak_rr", rr=float(rr))
+        return res
 
     print(f"✅ القرار: {'BUY (شراء)' if side==1 else 'SELL (بيع)'}")
     print(f"   دخول  : {price:.2f}  (ولا ريتريس لـ {price - side*0.3*a:.2f})")
@@ -338,6 +343,9 @@ def analyze():
     print(f"   TP1   : {tp1:.2f}  (RR {rr:.2f}) -> سكّر النص وحرّك الستوب لنقطة الدخول")
     print(f"   TP2   : {tp3:.2f}  (RR 3.0)")
     print("   خاطر 0.5%-1% كحد أقصى من الحساب فكل صفقة.")
+    res.update(decision="trade", side=side, entry=float(price), sl=float(sl), tp1=float(tp1),
+               tp2=float(tp3), rr=float(rr), risk=float(risk))
+    return res
 
 
 if __name__ == "__main__":
