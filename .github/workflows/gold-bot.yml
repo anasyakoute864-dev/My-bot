@@ -2,7 +2,9 @@ name: gold-signals
 
 on:
   schedule:
-    - cron: "*/15 * * * 0-5"
+    # كل ساعة (الدقيقة 3، من بعد سدان شمعة 1h). */15 كان غادي ياكل ~2500 دقيقة/شهر
+    # والحساب المجاني ديال repo خاص فيه 2000 دقيقة فقط
+    - cron: "3 * * * 0-5"
   workflow_dispatch:
     inputs:
       test_signal:
