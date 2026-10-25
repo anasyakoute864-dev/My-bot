@@ -25,11 +25,22 @@ NEWS_BLACKOUT = []
 
 
 # ---------------------------------------------------------------- بيانات
+def drop_unclosed(df, interval):
+    """نحيدو آخر شمعة إيلا باقا ما سدّاتش، باش الإشارة ما تبانش وتمشي وسط الساعة"""
+    delta = pd.Timedelta(hours=1) if interval == "1h" else pd.Timedelta(days=1)
+    last = df.index[-1]
+    last = last.tz_localize("UTC") if last.tzinfo is None else last.tz_convert("UTC")
+    if last + delta > pd.Timestamp.now(tz="UTC"):
+        return df.iloc[:-1]
+    return df
+
+
 def get_data(interval, period):
     df = yf.download(SYMBOL, interval=interval, period=period, auto_adjust=False, progress=False)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.rename(columns=str.lower).dropna()
+    df = drop_unclosed(df, interval)
     df["atr"] = atr(df)
     return df.dropna(subset=["atr"]).reset_index(drop=True)
 
