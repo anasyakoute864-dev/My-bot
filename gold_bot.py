@@ -6,6 +6,7 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 STATE = "last_signal.json"
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
+TEST_SIGNAL = os.getenv("TEST_SIGNAL", "0") == "1"
 
 
 def send(text):
@@ -54,6 +55,11 @@ def build_message(r, new_signal=False):
 def main():
     if not TOKEN or not CHAT_ID:
         sys.exit("TOKEN / CHAT_ID ناقصين")
+    if TEST_SIGNAL:  # صفقة وهمية للتجربة فقط، ما كتمس حتى حالة
+        fake = {"decision": "trade", "side": 1, "entry": 4140.0, "entry2": 4136.0, "sl": 4117.0,
+                "tp1": 4186.0, "tp2": 4209.0, "risk": 23.0}
+        send("🧪 رسالة تجريبية (وهمية)\n\n" + build_message(fake))
+        return
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):

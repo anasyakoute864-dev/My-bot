@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/15 * * * 0-5"
   workflow_dispatch:
+    inputs:
+      test_signal:
+        description: "صيفط صفقة وهمية للتجربة"
+        type: boolean
+        default: false
 
 concurrency:
   group: gold-signals
@@ -36,5 +41,6 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           # التشغيل اليدوي كيرسل دائما (للتجربة)، والتلقائي كيرسل غير الإشارات الجديدة
+          TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python gold_bot.py
