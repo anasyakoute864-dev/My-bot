@@ -344,7 +344,8 @@ def analyze():
     print(f"   TP2   : {tp3:.2f}  (RR 3.0)")
     print("   خاطر 0.5%-1% كحد أقصى من الحساب فكل صفقة.")
     res.update(decision="trade", side=side, entry=float(price), sl=float(sl), tp1=float(tp1),
-               tp2=float(tp3), rr=float(rr), risk=float(risk))
+               tp2=float(tp3), rr=float(rr), risk=float(risk),
+               entry2=float(price - side * 0.3 * a))
     return res
 
 

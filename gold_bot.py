@@ -6,7 +6,6 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 STATE = "last_signal.json"
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
-LINE = "━━━━━━━━━━"
 
 
 def send(text):
@@ -32,29 +31,24 @@ def load_last():
     return last
 
 
+ORD = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس"]
+
+
+def targets(r):
+    """5 أهداف: 1R، 1.5R، TP1 (2R ولا منطقة)، نص الطريق، TP2 (3R)"""
+    e, side, risk = r["entry"], r["side"], r["risk"]
+    return [e + side * risk, e + side * 1.5 * risk, r["tp1"], (r["tp1"] + r["tp2"]) / 2, r["tp2"]]
+
+
 def build_message(r, new_signal=False):
-    price = f"{r['price']:.2f}"
-
-    if r["decision"] == "trade":
-        buy = r["side"] == 1
-        title = "🟢 شراء BUY" if buy else "🔴 بيع SELL"
-        lines = []
-        if new_signal:
-            lines.append("🔔 إشارة جديدة")
-        lines += [
-            f"🥇 الذهب | {title}",
-            LINE,
-            f"💰 السعر: {price}",
-            f"🎯 الدخول: {r['entry']:.2f}",
-            f"🛑 الستوب: {r['sl']:.2f}",
-            f"✅ الهدف 1: {r['tp1']:.2f} (RR {r['rr']:.1f})",
-            f"🏁 الهدف 2: {r['tp2']:.2f} (RR 3.0)",
-            LINE,
-        ]
-        lines += ["", "⚠️ خاطر 0.5% - 1% فقط من الحساب فكل صفقة."]
-        return "\n".join(lines)
-
-    return "⏸ ما كاينش صفقة دابا."
+    if r["decision"] != "trade":
+        return "⏸ ما كاينش صفقة دابا."
+    buy = r["side"] == 1
+    lines = [f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f} - {r['entry2']:.0f}"]
+    for name, t in zip(ORD, targets(r)):
+        lines.append(f"الهدف {name}: {t:.0f}")
+    lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
+    return "\n".join(lines)
 
 
 def main():
