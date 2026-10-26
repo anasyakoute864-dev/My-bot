@@ -52,6 +52,7 @@ jobs:
           SYMBOL: GC=F
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
+          V_ALERT: "1"   # تنبيه حركة V (معلومة فقط)
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python gold_bot.py

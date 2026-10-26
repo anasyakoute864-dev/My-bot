@@ -382,7 +382,7 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         bar_close = t_close.isoformat()
     except Exception:
         bar_close = None
-    res = {"bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
+    res = {"v_alert": v_shape(df), "bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
     blocked = news_blocked(now)
     if blocked:
