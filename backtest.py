@@ -45,6 +45,25 @@ def simulate(side, entry, sl, tp1, tp2, h, l, c):
     return real + left * side * (c[-1] - entry) / risk, len(c)
 
 
+def simulate_scalp(side, entry, sl, targets, h, l, c):
+    """5 أهداف (كل واحد 20%) وستوب ثابت. كيرجع (R، شموع، واش ضرب الهدف الأول)"""
+    risk = abs(entry - sl)
+    n = len(targets)
+    part = 1.0 / n
+    done, real, hit1 = 0, 0.0, False
+    for k in range(len(h)):
+        if (side == 1 and l[k] <= sl) or (side == -1 and h[k] >= sl):   # الستوب أولا (تحفظ)
+            return real - (n - done) * part, k + 1, hit1
+        while done < n and ((side == 1 and h[k] >= targets[done]) or
+                            (side == -1 and l[k] <= targets[done])):
+            real += part * side * (targets[done] - entry) / risk
+            done += 1
+            hit1 = True
+        if done == n:
+            return real, k + 1, hit1
+    return real + (n - done) * part * side * (c[-1] - entry) / risk, len(c), hit1
+
+
 def run(df, dd, step=1, window=WINDOW):
     dd = dd.copy()
     dd["day"] = dd["time"].map(naive_utc).dt.normalize()
@@ -65,12 +84,17 @@ def run(df, dd, step=1, window=WINDOW):
         if not is_new or i <= busy_until:
             continue
         fut = df.iloc[i + 1: i + 1 + MAX_HOLD]
-        r, held = simulate(res["side"], res["entry"], res["sl"], res["tp1"], res["tp2"],
-                           fut["high"].values, fut["low"].values, fut["close"].values)
+        if res.get("targets"):
+            r, held, hit1 = simulate_scalp(res["side"], res["entry"], res["sl"], res["targets"],
+                                           fut["high"].values, fut["low"].values, fut["close"].values)
+        else:
+            r, held = simulate(res["side"], res["entry"], res["sl"], res["tp1"], res["tp2"],
+                               fut["high"].values, fut["low"].values, fut["close"].values)
+            hit1 = None
         r -= SPREAD / res["risk"]
         trades.append({"time": t, "side": signal, "entry": res["entry"], "sl": res["sl"],
                        "tp1": res["tp1"], "tp2": res["tp2"], "risk": res["risk"],
-                       "bars_held": held, "R": round(r, 3)})
+                       "bars_held": held, "R": round(r, 3), "hit1": hit1})
         busy_until = i + held
     return trades
 
@@ -94,7 +118,9 @@ def summarize(trades, start, end):
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}",
-        f"نسبة النجاح: {(r > 0).mean() * 100:.0f}%",
+        f"نسبة النجاح (صافي R>0): {(r > 0).mean() * 100:.0f}%",
+        *([f"ضرب الهدف الأول: {sum(h)/len(h)*100:.0f}%"]
+          if (h := [t["hit1"] for t in trades if t.get("hit1") is not None]) else []),
         f"متوسط الصفقة: {r.mean():+.2f}R",
         f"المجموع: {r.sum():+.1f}R",
         f"Profit factor: {pf:.2f}",

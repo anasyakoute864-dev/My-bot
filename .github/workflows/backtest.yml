@@ -6,6 +6,11 @@ on:
       step:
         description: "خطوة الشموع (1 = كل شمعة، 3 = أسرع)"
         default: "1"
+      style:
+        description: "نمط الإشارة: swing ولا scalp"
+        type: choice
+        options: [swing, scalp]
+        default: swing
 
 jobs:
   backtest:
@@ -25,6 +30,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
         run: python backtest.py "${{ github.event.inputs.step || '1' }}"
 
       - name: Save trades

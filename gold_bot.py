@@ -37,6 +37,8 @@ ORD = ["الأول", "الثاني", "الثالث", "الرابع", "الخام
 
 def targets(r):
     """5 أهداف: 1R، 1.5R، TP1 (2R ولا منطقة)، نص الطريق، TP2 (3R)"""
+    if r.get("targets"):  # نمط scalp: الأهداف جاهزة
+        return r["targets"]
     e, side, risk = r["entry"], r["side"], r["risk"]
     return [e + side * risk, e + side * 1.5 * risk, r["tp1"], (r["tp1"] + r["tp2"]) / 2, r["tp2"]]
 

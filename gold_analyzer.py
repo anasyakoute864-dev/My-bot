@@ -21,6 +21,10 @@ MIN_SCORE = 5              # أقل نقطة باش نعطيك صفقة
 SELL_EXTRA = 1             # البيع خاصو نقطة زايدة (walk-forward: SELL ضعيف إلا ما كانش قوي)
 MIN_RR = 1.5               # أقل نسبة ربح/خسارة
 FRED_KEY = os.getenv("FRED_API_KEY", "")
+# نمط الإشارة: swing (أهداف 1R-3R، ستوب قريب) ولا scalp (أهداف قريبة بحال القنوات، ستوب بعيد)
+STYLE = os.getenv("SIGNAL_STYLE", "swing")
+SCALP_STOP_ATR = 5.0                          # الستوب = 5 ATR
+SCALP_TARGETS = [0.25, 0.5, 0.65, 0.8, 1.0]   # الأهداف الخمسة بـ ATR
 # تواريخ/ساعات الأخبار القوية بتوقيت UTC (البوت ما كيدخلش ساعة قبل وساعة بعد)
 # المصادر: federalreserve.gov (FOMC) و bls.gov/schedule (CPI, NFP). تأكد منها من وقت لآخر، وزيد 2027 فآخر السنة.
 NEWS_BLACKOUT = [
@@ -333,6 +337,15 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         return res
 
     side = 1 if score > 0 else -1
+    if STYLE == "scalp":
+        risk = SCALP_STOP_ATR * a
+        sl = price - side * risk
+        tg = [price + side * k * a for k in SCALP_TARGETS]
+        out(f"✅ [scalp] {'BUY' if side==1 else 'SELL'} @ {price:.2f}  Stop {sl:.2f}  Targets {[round(t,2) for t in tg]}")
+        res.update(decision="trade", side=side, entry=float(price), sl=float(sl), tp1=float(tg[0]),
+                   tp2=float(tg[-1]), rr=float(abs(tg[0] - price) / risk), risk=float(risk),
+                   entry2=float(price - side * 0.5 * a), targets=[float(t) for t in tg])
+        return res
     # Stop Loss
     swing_lows = [p[1] for p in pv if p[2] == "L" and p[1] < price][-2:]
     swing_highs = [p[1] for p in pv if p[2] == "H" and p[1] > price][-2:]
