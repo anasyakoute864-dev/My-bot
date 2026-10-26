@@ -18,6 +18,9 @@ on:
         options: [swing, scalp]
         default: swing
 
+permissions:
+  contents: write
+
 jobs:
   backtest:
     runs-on: ubuntu-latest
@@ -39,7 +42,24 @@ jobs:
           SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
           TRADE_HOURS_ET: ${{ github.event.inputs.hours || '3-12' }}
           SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
-        run: python backtest.py "${{ github.event.inputs.step || '1' }}"
+        shell: bash
+        run: |
+          mkdir -p results
+          set -o pipefail
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee results/last_backtest.txt
+
+      - name: Save log to repo
+        if: always()
+        run: |
+          git config user.name "gold-bot"
+          git config user.email "gold-bot@users.noreply.github.com"
+          git add -f results/last_backtest.txt
+          git commit -m "backtest log (symbol=${SYMBOL} style=${SIGNAL_STYLE})" || exit 0
+          git pull --rebase -q origin main || true
+          git push || true
+        env:
+          SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
+          SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
 
       - name: Save trades
         if: always()
