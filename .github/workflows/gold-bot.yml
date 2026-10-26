@@ -42,6 +42,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           TRADE_HOURS_ET: "off"   # off = إشارات فكل الساعات | "3-12" = غير لندن+أمريكا (نيويورك)
+          SYMBOL: GC=F   # بدلو بـ XAUUSD=X من بعد ما يكتب الـ backtest نتيجة مزيانة
           SIGNAL_STYLE: scalp   # scalp = أهداف قريبة (5) وستوب بعيد | swing = 1R-3R
           # التشغيل اليدوي كيرسل دائما (للتجربة)، والتلقائي كيرسل غير الإشارات الجديدة
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}

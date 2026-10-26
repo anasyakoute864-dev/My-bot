@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 
-SYMBOL = "GC=F"            # الذهب فيوتشرز (قريب من XAUUSD)
+SYMBOL = os.getenv("SYMBOL", "GC=F")   # GC=F = فيوتشرز | XAUUSD=X = الذهب الفوري (سعر البروكر)
 ENTRY_TF = "1h"            # فريم الدخول
 HTF = "1d"                 # الفريم الكبير
 PIVOT_N = 3                # عدد الشموع لتحديد القمم/القيعان
