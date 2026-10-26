@@ -2,9 +2,9 @@ name: gold-signals-15m
 
 on:
   schedule:
-    # كل 15 دقيقة، غير فساعات التداول (07:00-17:59 UTC كيغطي 3-12 نيويورك فالصيف والشتا)، الاثنين-الجمعة
-    # ~44 تشغيل فاليوم x 22 يوم = ~970 دقيقة (+ ~625 ديال البوت ديال 1h) < 2000 المجانية
-    - cron: "3,18,33,48 7-17 * * 1-5"
+    # 24 ساعة على 24 (الاثنين-الجمعة)، كل 30 دقيقة باش نبقاو تحت 2000 دقيقة مجانية فالشهر:
+    # 48 x 21.7 يوم = ~1050 دقيقة + ~625 ديال بوت 1h = ~1700. كل 15 دقيقة كان غادي يفوت الحد
+    - cron: "3,33 * * * 1-5"
   workflow_dispatch:
     inputs:
       test_signal:
@@ -47,7 +47,7 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           ENTRY_TF: "15m"
           MIN_SCORE: "3"
-          TRADE_HOURS_ET: "3-12"
+          TRADE_HOURS_ET: "off"   # off = 24/24 | "3-12" = غير لندن+نيويورك (أحسن فالـ backtest)
           SIGNAL_STYLE: scalp
           SYMBOL: GC=F
           STATE_FILE: last_signal_15m.json
