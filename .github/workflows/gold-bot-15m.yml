@@ -55,3 +55,14 @@ jobs:
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python gold_bot.py
+
+      - name: Save live status (manual runs only)
+        if: github.event_name == 'workflow_dispatch' && always()
+        run: |
+          mkdir -p results
+          cp live_status.txt results/live_status_15m.txt || exit 0
+          git config user.name "gold-bot"; git config user.email "gold-bot@users.noreply.github.com"
+          git add -f results/live_status_15m.txt
+          git commit -m "live status 15m" || exit 0
+          git pull --rebase -q origin main || true
+          git push || true
