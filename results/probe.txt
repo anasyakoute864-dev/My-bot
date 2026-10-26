@@ -1,9 +1,0 @@
-yahoo XAUUSD=X: rows=0
-yahoo XAU=X: rows=0
-yahoo XAUUSD: rows=0
-yahoo GC=F: ERR TypeError
-yahoo MGC=F: ERR TypeError
-yahoo GLD: ERR TypeError
-yahoo IAU: ERR TypeError
-stooq ERR ConnectTimeout
-stooq ERR ConnectTimeout
