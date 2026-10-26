@@ -141,6 +141,9 @@ def build_message(r, new_signal=False):
         try:
             t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")
             lines.append(f"🕒 وقت الإشارة: {t:%H:%M} (نيويورك)")
+            a, b = (int(x) for x in os.getenv("STRONG_HOURS_ET", "3-12").split("-"))
+            if not (a <= t.hour <= b):
+                lines.append("⚠️ خارج ساعات لندن/نيويورك: أضعف فالـ backtest (PF أقل من 1)، خاطر بأقل")
         except Exception:
             pass
     return "\n".join(lines)
