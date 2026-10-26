@@ -14,7 +14,7 @@ import pandas as pd
 import backtest as bt
 import gold_analyzer as ga
 
-MIN_SCORES = [4, 5, 6, 7]
+MIN_SCORES = [3, 4, 5, 6, 7]
 SELL_EXTRA = [(0, "BUY+SELL"), (1, "SELL +1"), (99, "BUY فقط")]
 
 
@@ -48,10 +48,15 @@ def trades_for(df, recs, min_score, sell_extra):
         if not is_new or i <= busy:
             continue
         fut = df.iloc[i + 1: i + 1 + bt.MAX_HOLD]
-        r, held = bt.simulate(res["side"], res["entry"], res["sl"], res["tp1"], res["tp2"],
-                              fut["high"].values, fut["low"].values, fut["close"].values)
+        if res.get("targets"):
+            r, held, hit1 = bt.simulate_scalp(res["side"], res["entry"], res["sl"], res["targets"],
+                                              fut["high"].values, fut["low"].values, fut["close"].values)
+        else:
+            r, held = bt.simulate(res["side"], res["entry"], res["sl"], res["tp1"], res["tp2"],
+                                  fut["high"].values, fut["low"].values, fut["close"].values)
+            hit1 = None
         r -= bt.SPREAD / res["risk"]
-        out.append((t, round(r, 3)))
+        out.append((t, round(r, 3), hit1))
         busy = i + held
     return out
 
@@ -77,9 +82,11 @@ def run_all(df, recs):
     for ms in MIN_SCORES:
         for extra, label in SELL_EXTRA:
             tr = trades_for(df, recs, ms, extra)
-            a = stats([r for t, r in tr])
-            h1 = stats([r for t, r in tr if t < mid])
-            h2 = stats([r for t, r in tr if t >= mid])
+            a = stats([r for t, r, _ in tr])
+            h1 = stats([r for t, r, _ in tr if t < mid])
+            h2 = stats([r for t, r, _ in tr if t >= mid])
+            hs = [h for _, _, h in tr if h is not None]
+            a["tp1"] = (sum(hs) / len(hs) * 100) if hs else None
             ok = all(h["n"] >= 15 and h["pf"] > 1.15 for h in (h1, h2))
             rows.append({"ms": ms, "label": label, "all": a, "h1": h1, "h2": h2, "ok": ok})
     return rows, mid
@@ -90,7 +97,8 @@ def report(rows, mid, start, end):
     for r in rows:
         mark = "✅" if r["ok"] else "▫️"
         lines.append(f"{mark} MIN_SCORE={r['ms']} {r['label']}")
-        lines.append(f"   كامل: {fmt(r['all'])} | تراجع {r['all']['dd']:.1f}R")
+        tp1 = f" | TP1 {r['all']['tp1']:.0f}%" if r["all"].get("tp1") is not None else ""
+        lines.append(f"   كامل: {fmt(r['all'])} | تراجع {r['all']['dd']:.1f}R{tp1}")
         lines.append(f"   نص1: {fmt(r['h1'])}")
         lines.append(f"   نص2: {fmt(r['h2'])}")
     good = [r for r in rows if r["ok"]]

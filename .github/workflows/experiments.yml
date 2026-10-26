@@ -6,6 +6,11 @@ on:
       step:
         description: "خطوة الشموع (1 = كل شمعة، 3 = أسرع)"
         default: "1"
+      style:
+        description: "نمط الإشارة"
+        type: choice
+        options: [scalp, swing]
+        default: scalp
 
 jobs:
   experiments:
@@ -25,4 +30,6 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          SIGNAL_STYLE: ${{ github.event.inputs.style || 'scalp' }}
+          TRADE_HOURS_ET: "off"
         run: python experiments.py "${{ github.event.inputs.step || '1' }}"
