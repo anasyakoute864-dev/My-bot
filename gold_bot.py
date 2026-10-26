@@ -58,8 +58,9 @@ def main():
     if not TOKEN or not CHAT_ID:
         sys.exit("TOKEN / CHAT_ID ناقصين")
     if TEST_SIGNAL:  # صفقة وهمية للتجربة فقط، ما كتمس حتى حالة
-        fake = {"decision": "trade", "side": 1, "entry": 4140.0, "entry2": 4136.0, "sl": 4117.0,
-                "tp1": 4186.0, "tp2": 4209.0, "risk": 23.0}
+        fake = {"decision": "trade", "side": 1, "entry": 4140.0, "entry2": 4130.0, "sl": 4036.0,
+                "tp1": 4145.0, "tp2": 4160.0, "risk": 104.0,
+                "targets": [4145.0, 4150.0, 4153.0, 4156.0, 4160.0]}
         send("🧪 رسالة تجريبية (وهمية)\n\n" + build_message(fake))
         return
     buf = io.StringIO()
