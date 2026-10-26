@@ -23,6 +23,8 @@ MIN_RR = 1.5               # أقل نسبة ربح/خسارة
 FRED_KEY = os.getenv("FRED_API_KEY", "")
 # نمط الإشارة: swing (أهداف 1R-3R، ستوب قريب) ولا scalp (أهداف قريبة بحال القنوات، ستوب بعيد)
 STYLE = os.getenv("SIGNAL_STYLE", "swing")
+# ساعات التداول بتوقيت نيويورك (لندن + أمريكا). "off" = بلا فلتر. مثال: "3-12"
+TRADE_HOURS_ET = os.getenv("TRADE_HOURS_ET", "3-12")
 SCALP_STOP_ATR = 5.0                          # الستوب = 5 ATR
 SCALP_TARGETS = [0.25, 0.5, 0.65, 0.8, 1.0]   # الأهداف الخمسة بـ ATR
 # تواريخ/ساعات الأخبار القوية بتوقيت UTC (البوت ما كيدخلش ساعة قبل وساعة بعد)
@@ -267,6 +269,17 @@ def news_blocked(now=None):
     return None
 
 
+def in_trade_hours(df):
+    """وقت القرار = سدان آخر شمعة. كيتحسب من الشمعة (ماشي من الساعة الحالية) باش الـ backtest يوافق الحي"""
+    if TRADE_HOURS_ET.strip().lower() in ("", "off", "0"):
+        return True
+    a, b = (int(x) for x in TRADE_HOURS_ET.split("-"))
+    t = pd.Timestamp(df["time"].iloc[-1])
+    t = t.tz_localize("UTC") if t.tzinfo is None else t
+    h = (t + pd.Timedelta(hours=1)).tz_convert("America/New_York").hour
+    return a <= h <= b
+
+
 # ---------------------------------------------------------------- القرار
 def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     """منطق القرار لوحدو (بلا تحميل بيانات). كيستعملو البوت الحي والـ backtest."""
@@ -332,6 +345,10 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         res.update(decision="blocked", blocked=blocked)
         return res
     need = MIN_SCORE + (SELL_EXTRA if score < 0 else 0)
+    if not in_trade_hours(df):
+        out(f"⏸  خارج ساعات التداول ({TRADE_HOURS_ET} نيويورك) -> ما كاينش دخول دابا.")
+        res.update(decision="off_hours")
+        return res
     if abs(score) < need:
         out("⏸  القرار: ما كاينش setup واضح. استنى.")
         return res

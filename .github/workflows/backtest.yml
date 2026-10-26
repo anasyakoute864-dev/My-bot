@@ -6,6 +6,9 @@ on:
       step:
         description: "خطوة الشموع (1 = كل شمعة، 3 = أسرع)"
         default: "1"
+      hours:
+        description: "ساعات التداول بتوقيت نيويورك (مثلا 3-12) ولا off"
+        default: "3-12"
       style:
         description: "نمط الإشارة: swing ولا scalp"
         type: choice
@@ -30,6 +33,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TRADE_HOURS_ET: ${{ github.event.inputs.hours || '3-12' }}
           SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
         run: python backtest.py "${{ github.event.inputs.step || '1' }}"
 

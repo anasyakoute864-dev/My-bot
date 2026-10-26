@@ -2,9 +2,8 @@ name: gold-signals
 
 on:
   schedule:
-    # كل نص ساعة (الدقيقة 3 و33). كل تشغيل ~30 ثانية = دقيقة وحدة فالفاتورة
-    # 48 تشغيل فاليوم x ~26 يوم = ~1250 دقيقة من 2000 فالشهر (الحساب المجاني ديال repo خاص)
-    - cron: "3,33 * * * 0-5"
+    # كل ساعة فالدقيقة 3 (من بعد سدان شمعة 1h بشوية). ~625 دقيقة من 2000 فالشهر
+    - cron: "3 * * * 0-5"
   workflow_dispatch:
     inputs:
       test_signal:
@@ -42,6 +41,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          TRADE_HOURS_ET: "3-12"   # ساعات التداول بتوقيت نيويورك، "off" باش توقف الفلتر
           SIGNAL_STYLE: scalp   # scalp = أهداف قريبة (5) وستوب بعيد | swing = 1R-3R
           # التشغيل اليدوي كيرسل دائما (للتجربة)، والتلقائي كيرسل غير الإشارات الجديدة
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
