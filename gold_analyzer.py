@@ -14,10 +14,12 @@ import requests
 import yfinance as yf
 
 SYMBOL = os.getenv("SYMBOL", "GC=F")   # GC=F = فيوتشرز | XAUUSD=X = الذهب الفوري (سعر البروكر)
-ENTRY_TF = "1h"            # فريم الدخول
+ENTRY_TF = os.getenv("ENTRY_TF", "1h")   # فريم الدخول: 1h ولا 15m
+TF_DELTA = {"15m": pd.Timedelta(minutes=15), "1h": pd.Timedelta(hours=1), "1d": pd.Timedelta(days=1)}
+TF_PERIOD = {"15m": "59d", "1h": "730d"}   # Yahoo كيعطي غير 60 يوم للـ 15m
 HTF = "1d"                 # الفريم الكبير
 PIVOT_N = 3                # عدد الشموع لتحديد القمم/القيعان
-MIN_SCORE = 5              # أقل نقطة باش نعطيك صفقة
+MIN_SCORE = int(os.getenv("MIN_SCORE", "5"))   # أقل نقطة باش نعطيك صفقة
 SELL_EXTRA = 1             # البيع خاصو نقطة زايدة (walk-forward: SELL ضعيف إلا ما كانش قوي)
 MIN_RR = 1.5               # أقل نسبة ربح/خسارة
 FRED_KEY = os.getenv("FRED_API_KEY", "")
@@ -42,7 +44,7 @@ NEWS_BLACKOUT = [
 # ---------------------------------------------------------------- بيانات
 def drop_unclosed(df, interval):
     """نحيدو آخر شمعة إيلا باقا ما سدّاتش، باش الإشارة ما تبانش وتمشي وسط الساعة"""
-    delta = pd.Timedelta(hours=1) if interval == "1h" else pd.Timedelta(days=1)
+    delta = TF_DELTA[interval]
     last = df.index[-1]
     last = last.tz_localize("UTC") if last.tzinfo is None else last.tz_convert("UTC")
     if last + delta > pd.Timestamp.now(tz="UTC"):
@@ -276,7 +278,7 @@ def in_trade_hours(df):
     a, b = (int(x) for x in TRADE_HOURS_ET.split("-"))
     t = pd.Timestamp(df["time"].iloc[-1])
     t = t.tz_localize("UTC") if t.tzinfo is None else t
-    h = (t + pd.Timedelta(hours=1)).tz_convert("America/New_York").hour
+    h = (t + TF_DELTA[ENTRY_TF]).tz_convert("America/New_York").hour
     return a <= h <= b
 
 
@@ -406,7 +408,7 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
 
 
 def analyze():
-    df = get_data(ENTRY_TF, "60d")
+    df = get_data(ENTRY_TF, "59d" if ENTRY_TF == "15m" else "60d")
     dd = get_data(HTF, "1y")
     macro, macro_notes = macro_bias()
     return evaluate(df, dd, macro, macro_notes)

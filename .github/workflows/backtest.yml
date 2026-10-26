@@ -6,6 +6,12 @@ on:
       step:
         description: "خطوة الشموع (1 = كل شمعة، 3 = أسرع)"
         default: "1"
+      tf:
+        description: "الفريم: 1h ولا 15m"
+        default: "1h"
+      min_score:
+        description: "MIN_SCORE (3 / 4 / 5 ...)"
+        default: "5"
       symbol:
         description: "الرمز: GC=F (فيوتشرز) ولا XAUUSD=X (فوري)"
         default: "GC=F"
@@ -39,6 +45,8 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          ENTRY_TF: ${{ github.event.inputs.tf || '1h' }}
+          MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
           SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
           TRADE_HOURS_ET: ${{ github.event.inputs.hours || '3-12' }}
           SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
@@ -46,18 +54,20 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee results/last_backtest.txt
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}.txt"
 
       - name: Save log to repo
         if: always()
         run: |
           git config user.name "gold-bot"
           git config user.email "gold-bot@users.noreply.github.com"
-          git add -f results/last_backtest.txt
+          git add -f results/bt_*.txt
           git commit -m "backtest log (symbol=${SYMBOL} style=${SIGNAL_STYLE})" || exit 0
           git pull --rebase -q origin main || true
           git push || true
         env:
+          ENTRY_TF: ${{ github.event.inputs.tf || '1h' }}
+          MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
           SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
           SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
 

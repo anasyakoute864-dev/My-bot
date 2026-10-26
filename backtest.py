@@ -100,6 +100,7 @@ def run(df, dd, step=1, window=WINDOW):
 
 
 def summarize(trades, start, end):
+    days = max((pd.Timestamp(end) - pd.Timestamp(start)).days * 5 / 7, 1)  # أيام التداول تقريبا
     if not trades:
         return f"📈 Backtest الذهب (1h)\nمن {start} إلى {end}\n\nما كانت حتى صفقة فهاد المدة."
     r = pd.Series([t["R"] for t in trades])
@@ -114,10 +115,10 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        "📈 Backtest الذهب (1h)",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE}",
         f"من {start} إلى {end}",
         "",
-        f"عدد الصفقات: {len(r)}",
+        f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",
         f"نسبة النجاح (صافي R>0): {(r > 0).mean() * 100:.0f}%",
         *([f"ضرب الهدف الأول: {sum(h)/len(h)*100:.0f}%"]
           if (h := [t["hit1"] for t in trades if t.get("hit1") is not None]) else []),
@@ -143,7 +144,7 @@ def send(text):
 
 def main():
     step = int(sys.argv[1]) if len(sys.argv) > 1 else 1
-    df = ga.get_data("1h", "730d")
+    df = ga.get_data(ga.ENTRY_TF, ga.TF_PERIOD[ga.ENTRY_TF])
     dd = ga.get_data("1d", "5y")
     print(f"1h: {len(df)} شمعة | 1d: {len(dd)} شمعة | step={step}")
     trades = run(df, dd, step=step)
