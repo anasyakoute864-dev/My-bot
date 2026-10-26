@@ -339,7 +339,13 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     out("-" * 60)
     out(f"مجموع النقاط: {score:+.1f}  (الحد الأدنى: شراء +{MIN_SCORE} | بيع -{MIN_SCORE + SELL_EXTRA})")
 
-    res = {"price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
+    try:  # وقت سدان آخر شمعة (UTC) = وقت الإشارة
+        t_close = pd.Timestamp(df["time"].iloc[-1])
+        t_close = (t_close.tz_localize("UTC") if t_close.tzinfo is None else t_close.tz_convert("UTC")) + TF_DELTA[ENTRY_TF]
+        bar_close = t_close.isoformat()
+    except Exception:
+        bar_close = None
+    res = {"bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
     blocked = news_blocked(now)
     if blocked:

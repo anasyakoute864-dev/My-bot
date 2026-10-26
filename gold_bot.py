@@ -1,4 +1,5 @@
 import contextlib, io, json, os, sys, traceback
+import pandas as pd
 import requests
 import gold_analyzer as ga
 
@@ -92,6 +93,12 @@ def build_message(r, new_signal=False):
     for name, t in zip(ORD, targets(r)):
         lines.append(f"الهدف {name}: {t:.0f}")
     lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
+    if r.get("bar_close"):
+        try:
+            t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")
+            lines.append(f"🕒 وقت الإشارة: {t:%H:%M} (نيويورك)")
+        except Exception:
+            pass
     return "\n".join(lines)
 
 
@@ -101,7 +108,8 @@ def main():
     if TEST_SIGNAL:  # صفقة وهمية للتجربة فقط، ما كتمس حتى حالة
         fake = {"decision": "trade", "side": 1, "entry": 4140.0, "entry2": 4130.0, "sl": 4036.0,
                 "tp1": 4145.0, "tp2": 4160.0, "risk": 104.0,
-                "targets": [4145.0, 4150.0, 4153.0, 4156.0, 4160.0]}
+                "targets": [4145.0, 4150.0, 4153.0, 4156.0, 4160.0],
+                "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
         send("🧪 رسالة تجريبية (وهمية)\n\n" + build_message(fake))
         return
     buf = io.StringIO()
