@@ -18,6 +18,7 @@ ENTRY_TF = "1h"            # فريم الدخول
 HTF = "1d"                 # الفريم الكبير
 PIVOT_N = 3                # عدد الشموع لتحديد القمم/القيعان
 MIN_SCORE = 5              # أقل نقطة باش نعطيك صفقة
+SELL_EXTRA = 1             # البيع خاصو نقطة زايدة (walk-forward: SELL ضعيف إلا ما كانش قوي)
 MIN_RR = 1.5               # أقل نسبة ربح/خسارة
 FRED_KEY = os.getenv("FRED_API_KEY", "")
 # تواريخ/ساعات الأخبار القوية بتوقيت UTC (البوت ما كيدخلش ساعة قبل وساعة بعد)
@@ -317,7 +318,7 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     for n in macro_notes:
         out("•", n)
     out("-" * 60)
-    out(f"مجموع النقاط: {score:+.1f}  (الحد الأدنى للصفقة ±{MIN_SCORE})")
+    out(f"مجموع النقاط: {score:+.1f}  (الحد الأدنى: شراء +{MIN_SCORE} | بيع -{MIN_SCORE + SELL_EXTRA})")
 
     res = {"price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
@@ -326,7 +327,8 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         out(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
         res.update(decision="blocked", blocked=blocked)
         return res
-    if abs(score) < MIN_SCORE:
+    need = MIN_SCORE + (SELL_EXTRA if score < 0 else 0)
+    if abs(score) < need:
         out("⏸  القرار: ما كاينش setup واضح. استنى.")
         return res
 

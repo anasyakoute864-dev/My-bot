@@ -19,6 +19,7 @@ SELL_EXTRA = [(0, "BUY+SELL"), (1, "SELL +1"), (99, "BUY فقط")]
 
 
 def collect(df, dd, step):
+    ga.SELL_EXTRA = 0  # الفلتر كيتطبق من بعد فـ trades_for
     ga.MIN_SCORE = 3  # أدنى حد: كنجمعو كلشي ونفلتروه من بعد
     dd = dd.copy()
     dd["day"] = dd["time"].map(bt.naive_utc).dt.normalize()
