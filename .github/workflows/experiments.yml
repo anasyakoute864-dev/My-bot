@@ -1,0 +1,28 @@
+name: gold-experiments
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "خطوة الشموع (1 = كل شمعة، 3 = أسرع)"
+        default: "1"
+
+jobs:
+  experiments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install yfinance pandas numpy requests
+
+      - name: Run walk-forward experiments
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python experiments.py "${{ github.event.inputs.step || '1' }}"
