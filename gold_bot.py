@@ -81,7 +81,11 @@ def targets(r):
 
 def build_message(r, new_signal=False):
     if r["decision"] != "trade":
-        return "⏸ ما كاينش صفقة دابا."
+        why = {"wait": "ما كاينش setup واضح", "blocked": "خبر قوي قريب", "weak_rr": "RR ضعيف",
+               "off_hours": "خارج ساعات التداول"}.get(r["decision"], r["decision"])
+        sc = r.get("score")
+        extra = f" (النقاط {sc:+.1f} من أصل ±{r.get('min_score', '?')})" if sc is not None else ""
+        return f"⏸ ما كاينش صفقة دابا: {why}{extra}"
     buy = r["side"] == 1
     lines = [f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f} - {r['entry2']:.0f}"]
     for name, t in zip(ORD, targets(r)):
@@ -113,6 +117,10 @@ def main():
     if result and result.get("decision") == "trade":
         signal = "BUY" if result["side"] == 1 else "SELL"
 
+    if result:  # حالة آخر تشغيل (كنقراوها للتشخيص)
+        import datetime as _dt
+        with open("live_status.txt", "w", encoding="utf-8") as f:
+            f.write(f"{_dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC\n{buf.getvalue()}")
     last = load_last()
     if result:
         if signal and signal != last:
