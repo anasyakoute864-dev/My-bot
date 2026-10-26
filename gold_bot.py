@@ -32,6 +32,42 @@ def load_last():
     return last
 
 
+SPOT_URL = "https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD"
+SPOT_ADJUST = os.getenv("SPOT_ADJUST", "1") == "1"
+
+
+def spot_price():
+    """سعر الذهب الفوري XAU/USD (وسط bid/ask) من Swissquote. None إلا فشل"""
+    try:
+        r = requests.get(SPOT_URL, timeout=10)
+        p = r.json()[0]["spreadProfilePrices"][0]
+        return (float(p["bid"]) + float(p["ask"])) / 2
+    except Exception as e:
+        print("spot fetch failed:", type(e).__name__)
+        return None
+
+
+def to_spot(res):
+    """كيحول الدخول والستوب والأهداف من سعر الفيوتشرز (GC=F) لسعر الفوري (XAUUSD) بنفس الفرق"""
+    if not SPOT_ADJUST or res.get("decision") != "trade":
+        return res
+    spot = spot_price()
+    if spot is None:
+        return res
+    off = spot - res["entry"]
+    if abs(off) > 60:  # فرق غير منطقي (بيانات غالطة): ما نبدلو والو
+        print(f"spot offset {off:.1f} too large, ignored")
+        return res
+    print(f"futures {res['entry']:.2f} -> spot {spot:.2f} (offset {off:+.2f})")
+    res = dict(res)
+    for k in ("entry", "entry2", "sl", "tp1", "tp2"):
+        if k in res:
+            res[k] = res[k] + off
+    if res.get("targets"):
+        res["targets"] = [t + off for t in res["targets"]]
+    return res
+
+
 ORD = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس"]
 
 
@@ -80,9 +116,9 @@ def main():
     last = load_last()
     if result:
         if signal and signal != last:
-            send(build_message(result, new_signal=True))
+            send(build_message(to_spot(result), new_signal=True))
         elif ALWAYS_SEND:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
-            send(build_message(result))
+            send(build_message(to_spot(result)))
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:

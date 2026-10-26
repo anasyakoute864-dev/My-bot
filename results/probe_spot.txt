@@ -1,7 +1,0 @@
-UTC now: 2026-10-26 05:13
-yahoo GC=F: (4032.10009765625, '2026-10-26 01:03:00-04:00')
-yahoo MGC=F: (4032.0, '2026-10-26 01:03:00-04:00')
-yahoo GLD: (366.6000061035156, '2026-10-23 15:59:00-04:00')
-gold-api.com: 200 {"currency":"USD","currencySymbol":"$","exchangeRate":1.0,"name":"Gold","price":4015.800049,"symbol":"XAU","updatedAt":"2026-10-26T05:13:43Z","updatedAtReadable":"a few seconds ago"}
-metals.live: ERR SSLError
-swissquote: 200 [{"topo":{"platform":"SwissquoteLtd","server":"Live5"},"spreadProfilePrices":[{"spreadProfile":"premium","bidSpread":25.60,"askSpread":25.60,"bid":4013.794,"ask":4014.456},{"spreadProfile":"prime","bidSpread":24.20,"askSpread":24.20,"bid":4013.808,"ask":4014.442},{"spreadProfile":"elite","bidSpread"
