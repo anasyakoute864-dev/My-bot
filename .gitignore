@@ -1,2 +1,4 @@
 __pycache__/
 last_signal.json
+last_signal_15m.json
+live_status.txt

@@ -1,0 +1,57 @@
+name: gold-signals-15m
+
+on:
+  schedule:
+    # كل 15 دقيقة، غير فساعات التداول (07:00-17:59 UTC كيغطي 3-12 نيويورك فالصيف والشتا)، الاثنين-الجمعة
+    # ~44 تشغيل فاليوم x 22 يوم = ~970 دقيقة (+ ~625 ديال البوت ديال 1h) < 2000 المجانية
+    - cron: "3,18,33,48 7-17 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      test_signal:
+        description: "صيفط صفقة وهمية للتجربة"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gold-signals-15m
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install yfinance pandas numpy requests
+
+      - name: Restore last signal
+        uses: actions/cache@v4
+        with:
+          path: last_signal_15m.json
+          key: last-signal-15m-${{ github.run_id }}
+          restore-keys: last-signal-15m-
+
+      - name: Run bot (15m)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TG_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          ENTRY_TF: "15m"
+          MIN_SCORE: "3"
+          TRADE_HOURS_ET: "3-12"
+          SIGNAL_STYLE: scalp
+          SYMBOL: GC=F
+          STATE_FILE: last_signal_15m.json
+          SIGNAL_LABEL: "⚡ 15m"
+          TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
+          ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+        run: python gold_bot.py

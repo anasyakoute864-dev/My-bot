@@ -4,7 +4,8 @@ import gold_analyzer as ga
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-STATE = "last_signal.json"
+STATE = os.getenv("STATE_FILE", "last_signal.json")
+LABEL = os.getenv("SIGNAL_LABEL", "")   # مثلا "⚡ 15m" باش نفرقو بين البوتين
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
 TEST_SIGNAL = os.getenv("TEST_SIGNAL", "0") == "1"
 
@@ -87,7 +88,7 @@ def build_message(r, new_signal=False):
         extra = f" (النقاط {sc:+.1f} من أصل ±{r.get('min_score', '?')})" if sc is not None else ""
         return f"⏸ ما كاينش صفقة دابا: {why}{extra}"
     buy = r["side"] == 1
-    lines = [f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f} - {r['entry2']:.0f}"]
+    lines = ([LABEL] if LABEL else []) + [f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f} - {r['entry2']:.0f}"]
     for name, t in zip(ORD, targets(r)):
         lines.append(f"الهدف {name}: {t:.0f}")
     lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
