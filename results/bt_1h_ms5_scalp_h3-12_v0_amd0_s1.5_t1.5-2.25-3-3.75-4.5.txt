@@ -1,0 +1,34 @@
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/utils.py:568: Pandas4Warning: The inplace keyword in DataFrame.sort_index is deprecated and will be removed in a future version (PDEP-8).
+See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
+  quotes.sort_index(inplace=True)
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/multi.py:220: Pandas4Warning: The inplace keyword in DataFrame.rename is deprecated and will be removed in a future version (PDEP-8).
+See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
+  data.rename(columns=ctx.isins, inplace=True)
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/multi.py:224: Pandas4Warning: The inplace keyword in DataFrame.sort_index is deprecated and will be removed in a future version (PDEP-8).
+See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
+  data.sort_index(level=0, axis=1, inplace=True)
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/utils.py:568: Pandas4Warning: The inplace keyword in DataFrame.sort_index is deprecated and will be removed in a future version (PDEP-8).
+See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
+  quotes.sort_index(inplace=True)
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/multi.py:220: Pandas4Warning: The inplace keyword in DataFrame.rename is deprecated and will be removed in a future version (PDEP-8).
+See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
+  data.rename(columns=ctx.isins, inplace=True)
+/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/multi.py:224: Pandas4Warning: The inplace keyword in DataFrame.sort_index is deprecated and will be removed in a future version (PDEP-8).
+See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
+  data.sort_index(level=0, axis=1, inplace=True)
+1h: 13717 شمعة | 1d: 1244 شمعة | step=1
+📈 Backtest الذهب (1h) MIN_SCORE=5 scalp V=0 AMD=0 stop=1.5ATR targets=[1.5, 2.25, 3.0, 3.75, 4.5]
+من 2024-07-30 إلى 2026-10-28
+
+عدد الصفقات: 119  (~0.2 فاليوم)
+نسبة النجاح (صافي R>0): 37%
+ضرب الهدف الأول: 54%
+متوسط الصفقة: +0.10R
+المجموع: +12.5R
+Profit factor: 1.20
+أكبر تراجع: -9.4R
+أطول سلسلة خسائر: 11
+BUY: 112 (+13.5R) | SELL: 7 (-1.0R)
+
+(بلا ماكرو، تكلفة 0.3$ فالصفقة، R = المخاطرة ديال الصفقة)
+telegram: 200
