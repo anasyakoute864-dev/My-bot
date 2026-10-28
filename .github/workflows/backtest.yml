@@ -21,6 +21,15 @@ on:
       targets:
         description: "scalp: 5 أهداف بـ ATR مفصولة بفاصلة"
         default: "0.25,0.5,0.65,0.8,1.0"
+      ict:
+        description: "نموذج ICT: 0 (طافي) | 1 (مع السكور) | only (غير ICT)"
+        default: "0"
+      ict_range:
+        description: "ساعات الرينج نيويورك (20-2 آسيا | 2-7 لندن)"
+        default: "20-2"
+      ict_entry:
+        description: "ساعات السحب والدخول نيويورك"
+        default: "2-11"
       amd:
         description: "AMD (تلاعب-توزيع-تأكيد): 1 ولا 0"
         default: "0"
@@ -61,6 +70,10 @@ jobs:
           MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
           VSHAPE: ${{ github.event.inputs.vshape || '0' }}
           AMD: ${{ github.event.inputs.amd || '0' }}
+          ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
+          ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
+          ICT_RANGE_ET: ${{ github.event.inputs.ict_range || '20-2' }}
+          ICT_ENTRY_ET: ${{ github.event.inputs.ict_entry || '2-11' }}
           SCALP_STOP_ATR: ${{ github.event.inputs.stop_atr || '5.0' }}
           SCALP_TARGETS: ${{ github.event.inputs.targets || '0.25,0.5,0.65,0.8,1.0' }}
           SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
@@ -70,7 +83,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_ict${ICT}${ICT_ONLY}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()

@@ -32,6 +32,11 @@ V_LOOK, V_DROP_ATR, V_REB_ATR, V_MAX_BARS = 12, 3.0, 2.0, 8
 AMD = os.getenv("AMD", "0") == "1"                  # تجميع -> تلاعب -> توزيع -> تأكيد (Power of 3)
 AMD_WEIGHT = float(os.getenv("AMD_WEIGHT", "2"))    # كم نقطة كيزيد فالسكور
 AMD_RANGE, AMD_RANGE_ATR, AMD_MAX_AGE = 12, 4.0, 8  # طول التجميع / أقصى عرضو بـ ATR / أقصى عمر للتلاعب (شموع)
+ICT = os.getenv("ICT", "0") == "1"                  # نموذج ICT: رينج -> سحب سيولة -> CISD -> FVG -> هدف الرينج
+ICT_ONLY = os.getenv("ICT_ONLY", "0") == "1"        # 1 = غير نموذج ICT (بلا السكور العادي)
+ICT_RANGE_ET = os.getenv("ICT_RANGE_ET", "20-2")    # ساعات الرينج (نيويورك). 20-2 = آسيا | 2-7 = لندن
+ICT_ENTRY_ET = os.getenv("ICT_ENTRY_ET", "2-11")    # ساعات السحب والدخول (نيويورك)
+ICT_FRACS = [0.35, 0.5, 0.65, 0.8, 1.0]             # الأهداف = نسب من المسافة للطرف الآخر ديال الرينج
 SCALP_STOP_ATR = float(os.getenv("SCALP_STOP_ATR", "5.0"))   # الستوب = X ATR
 SCALP_TARGETS = [float(x) for x in os.getenv("SCALP_TARGETS", "0.25,0.5,0.65,0.8,1.0").split(",")]   # 5 أهداف بـ ATR
 # تواريخ/ساعات الأخبار القوية بتوقيت UTC (البوت ما كيدخلش ساعة قبل وساعة بعد)
@@ -277,6 +282,103 @@ def amd_setup(df):
     return None
 
 
+# ---------------------------------------------------------------- ICT: رينج -> تلاعب -> CISD -> FVG -> توزيع
+def _hours(rng):
+    a, b = (int(x) for x in rng.split("-"))
+    return a, b
+
+
+def _in_window(hour, a, b):
+    return (a <= hour < b) if a < b else (hour >= a or hour < b)
+
+
+def ict_setup(df):
+    """
+    1) تجميع: رينج الجلسة السابقة (ICT_RANGE_ET بتوقيت نيويورك) -> قمة/قاع السيولة.
+    2) تلاعب: السعر كيسحب قاع (ولا قمة) الرينج فنافذة ICT_ENTRY_ET.
+    3) CISD: من بعد السحب، شمعة كتسد فوق (ولا تحت) فتحة سلسلة الشموع اللي دارت السحب.
+    4) FVG: فجوة فالحركة الانعكاسية (كنستعملوها لمجال الدخول).
+    5) توزيع: الهدف = الطرف الآخر ديال الرينج. الستوب = وراء طرف السحب.
+    الدخول غير فأول شمعتين من CISD. dir=+1 شراء، -1 بيع.
+    """
+    n = len(df)
+    if n < 60:
+        return None
+    t = pd.to_datetime(df["time"])
+    t = t.dt.tz_localize("UTC") if t.dt.tz is None else t.dt.tz_convert("UTC")
+    et = t.dt.tz_convert("America/New_York")
+    hrs = et.dt.hour.values
+    ra, rb = _hours(ICT_RANGE_ET)
+    ea, eb = _hours(ICT_ENTRY_ET)
+    close_hr = (et.iloc[-1] + TF_DELTA[ENTRY_TF]).hour
+    if not _in_window(close_hr, ea, eb) and not _in_window(hrs[-1], ea, eb):
+        return None
+    in_rng = np.array([_in_window(int(x), ra, rb) for x in hrs])
+    sid = (et - pd.Timedelta(hours=ra)).dt.strftime("%Y%m%d").values
+    # آخر رينج مكتمل: آخر شمعة فالرينج قبل الشمعة الحالية، والحالية خارج الرينج
+    idx = np.where(in_rng[:-1])[0]
+    if len(idx) == 0 or in_rng[-1]:
+        return None
+    last_in = idx[-1]
+    grp = [i for i in idx if sid[i] == sid[last_in]]
+    need = max(3, int(((rb - ra) % 24) * (3600 / TF_DELTA[ENTRY_TF].total_seconds()) * 0.5))
+    if len(grp) < need:
+        return None
+    o, h, l, c = (df[k].values for k in ("open", "high", "low", "close"))
+    a = df["atr"].values
+    rh, rl = h[grp].max(), l[grp].min()
+    start = last_in + 1
+    post = range(start, n)
+    if len(post) < 3:
+        return None
+    for d in (1, -1):
+        # أول سحب فالاتجاه d (شراء = سحب القاع)
+        j = next((i for i in post if (d == 1 and l[i] < rl - 0.1 * a[i]) or (d == -1 and h[i] > rh + 0.1 * a[i])), None)
+        if j is None:
+            continue
+        # ما نقبلوش إلا ما كان سحب الجهتين
+        if any((d == 1 and h[i] > rh + 0.1 * a[i]) or (d == -1 and l[i] < rl - 0.1 * a[i]) for i in range(j, n)):
+            continue
+        seg = range(j, n)
+        e = min(seg, key=lambda i: l[i]) if d == 1 else max(seg, key=lambda i: h[i])
+        ext = l[e] if d == 1 else h[e]
+        # سلسلة شموع التسليم (عكس d) اللي سالات عند الطرف
+        q = e
+        while q >= start and not ((c[q] < o[q]) if d == 1 else (c[q] > o[q])):
+            q -= 1
+        if q < start:
+            continue
+        s0 = q
+        while s0 - 1 >= start and ((c[s0 - 1] < o[s0 - 1]) if d == 1 else (c[s0 - 1] > o[s0 - 1])):
+            s0 -= 1
+        level = o[s0]
+        k = next((i for i in range(max(q, e) + 1, n) if (d == 1 and c[i] > level) or (d == -1 and c[i] < level)), None)
+        if k is None or n - 1 - k > 1:
+            continue
+        price = c[-1]
+        risk = (price - ext + 0.3 * a[-1]) if d == 1 else (ext + 0.3 * a[-1] - price)
+        dist = (rh - price) if d == 1 else (price - rl)
+        if not (0.5 * a[-1] <= risk <= 4 * a[-1]) or dist < 2 * risk:
+            continue
+        fvg = None
+        for i in range(max(e - 1, 0), k):
+            if i + 2 <= n - 1:
+                if d == 1 and l[i + 2] > h[i]:
+                    fvg = (float(h[i]), float(l[i + 2]))
+                if d == -1 and h[i + 2] < l[i]:
+                    fvg = (float(h[i + 2]), float(l[i]))
+        entry2 = price - d * 0.3 * a[-1]
+        if fvg:
+            mid = (fvg[0] + fvg[1]) / 2
+            if d * (price - mid) > 0:
+                entry2 = mid
+        return {"dir": d, "range": (float(rl), float(rh)), "extreme": float(ext), "cisd": float(level),
+                "fvg": fvg, "risk": float(risk), "dist": float(dist), "entry2": float(entry2),
+                "targets": [float(price + d * f * dist) for f in ICT_FRACS],
+                "sl": float(ext - d * 0.3 * a[-1])}
+    return None
+
+
 # ---------------------------------------------------------------- Breakout
 def breakout(df, look=20):
     c = df["close"].iloc[-1]
@@ -449,6 +551,18 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         out(f"⏸  خارج ساعات التداول ({TRADE_HOURS_ET} نيويورك) -> ما كاينش دخول دابا.")
         res.update(decision="off_hours")
         return res
+    if ICT:
+        ict = ict_setup(df)
+        if ict:
+            side = ict["dir"]
+            out(f"✅ [ICT] {'BUY' if side == 1 else 'SELL'} @ {price:.2f}  Stop {ict['sl']:.2f}  Targets {[round(x, 2) for x in ict['targets']]}")
+            res.update(decision="trade", side=side, entry=float(price), sl=ict["sl"], tp1=ict["targets"][0],
+                       tp2=ict["targets"][-1], rr=float(abs(ict["targets"][0] - price) / ict["risk"]),
+                       risk=ict["risk"], entry2=ict["entry2"], targets=ict["targets"], ict=ict)
+            return res
+        if ICT_ONLY:
+            out("⏸  ICT: ما كاينش setup (رينج -> سحب -> CISD).")
+            return res
     if abs(score) < need:
         out("⏸  القرار: ما كاينش setup واضح. استنى.")
         return res
