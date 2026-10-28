@@ -47,6 +47,8 @@ jobs:
           TRADE_HOURS_ET: "off"   # off = إشارات فكل الساعات | "3-12" = غير لندن+أمريكا (نيويورك)
           SYMBOL: GC=F   # بدلو بـ XAUUSD=X من بعد ما يكتب الـ backtest نتيجة مزيانة
           SIGNAL_STYLE: scalp   # scalp = أهداف قريبة (5) وستوب بعيد | swing = 1R-3R
+          SCALP_STOP_ATR: "1.5"   # ستوب أقرب: الربح > الخسارة (كان 5.0 بأهداف صغيرة)
+          SCALP_TARGETS: "1,1.5,2,2.5,3"   # 5 أهداف بـ ATR (RR متوسط ~1.3)
           # التشغيل اليدوي كيرسل دائما (للتجربة)، والتلقائي كيرسل غير الإشارات الجديدة
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}

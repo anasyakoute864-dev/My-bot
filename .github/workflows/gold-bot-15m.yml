@@ -48,6 +48,8 @@ jobs:
           MIN_SCORE: "3"
           TRADE_HOURS_ET: "off"   # off = 24/24 | "3-12" = غير لندن+نيويورك (أحسن فالـ backtest)
           SIGNAL_STYLE: scalp
+          SCALP_STOP_ATR: "1.5"   # ستوب أقرب: الربح > الخسارة (كان 5.0 بأهداف صغيرة)
+          SCALP_TARGETS: "1,1.5,2,2.5,3"   # 5 أهداف بـ ATR (RR متوسط ~1.3)
           SYMBOL: GC=F
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
