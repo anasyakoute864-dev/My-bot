@@ -137,6 +137,7 @@ def build_message(r, new_signal=False):
     for name, t in zip(ORD, targets(r)):
         lines.append(f"الهدف {name}: {t:.0f}")
     lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
+    lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
     if r.get("ict"):
         lines.append("🧩 ICT: تجميع ← تلاعب ← CISD" + (" ← FVG" if r["ict"].get("fvg") else ""))
     if r.get("amd") and r["amd"]["dir"] == r["side"]:

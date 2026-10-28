@@ -48,8 +48,8 @@ jobs:
           MIN_SCORE: "3"
           TRADE_HOURS_ET: "off"   # off = 24/24 | "3-12" = غير لندن+نيويورك (أحسن فالـ backtest)
           SIGNAL_STYLE: scalp
-          SCALP_STOP_ATR: "1.5"   # ستوب أقرب: الربح > الخسارة (كان 5.0 بأهداف صغيرة)
-          SCALP_TARGETS: "1,1.5,2,2.5,3"   # 5 أهداف بـ ATR (RR متوسط ~1.3)
+          SCALP_STOP_ATR: "2.5"   # ستوب 2.5 ATR + الستوب للدخول من بعد الهدف الأول (backtest: PF 2.0)
+          SCALP_TARGETS: "0.75,1,1.5,2,2.5"   # 5 أهداف بـ ATR
           SYMBOL: GC=F
           ICT: "1"   # نموذج ICT: رينج آسيا -> سحب سيولة -> CISD -> FVG -> هدف الرينج
           ICT_HTF: "1"   # ما نداخلش ICT ضد الاتجاه اليومي
