@@ -137,6 +137,8 @@ def build_message(r, new_signal=False):
     for name, t in zip(ORD, targets(r)):
         lines.append(f"الهدف {name}: {t:.0f}")
     lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
+    if r.get("amd") and r["amd"]["dir"] == r["side"]:
+        lines.append("🧩 تأكيد: تجميع ← تلاعب ← توزيع")
     if r.get("bar_close"):
         try:
             t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")

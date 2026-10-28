@@ -115,7 +115,7 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)}",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} AMD={int(ga.AMD)}",
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",

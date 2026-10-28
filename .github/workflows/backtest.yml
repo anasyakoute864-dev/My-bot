@@ -15,6 +15,9 @@ on:
       vshape:
         description: "كشف حركة V: 1 ولا 0"
         default: "0"
+      amd:
+        description: "AMD (تلاعب-توزيع-تأكيد): 1 ولا 0"
+        default: "0"
       symbol:
         description: "الرمز: GC=F (فيوتشرز) ولا XAUUSD=X (فوري)"
         default: "GC=F"
@@ -51,6 +54,7 @@ jobs:
           ENTRY_TF: ${{ github.event.inputs.tf || '1h' }}
           MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
           VSHAPE: ${{ github.event.inputs.vshape || '0' }}
+          AMD: ${{ github.event.inputs.amd || '0' }}
           SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
           TRADE_HOURS_ET: ${{ github.event.inputs.hours || '3-12' }}
           SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
@@ -58,7 +62,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}.txt"
 
       - name: Save log to repo
         if: always()
