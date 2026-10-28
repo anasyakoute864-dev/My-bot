@@ -20,6 +20,7 @@ import gold_analyzer as ga
 WINDOW = 800      # عدد شموع الساعة اللي كتعطى للتحليل فكل خطوة
 MAX_HOLD = 72     # أقصى مدة للصفقة (بالشموع)، من بعد كنسكروها بسعر الإغلاق
 SPREAD = 0.30     # تكلفة (سبريد + انزلاق) بالدولار فكل صفقة
+BE_AFTER_TP1 = os.getenv("BE_AFTER_TP1", "0") == "1"   # الستوب للدخول من بعد الهدف الأول
 MIN_DAILY = 30    # أقل عدد شموع يومية باش نحللو
 
 
@@ -45,20 +46,25 @@ def simulate(side, entry, sl, tp1, tp2, h, l, c):
     return real + left * side * (c[-1] - entry) / risk, len(c)
 
 
-def simulate_scalp(side, entry, sl, targets, h, l, c):
-    """5 أهداف (كل واحد 20%) وستوب ثابت. كيرجع (R، شموع، واش ضرب الهدف الأول)"""
+def simulate_scalp(side, entry, sl, targets, h, l, c, be=None):
+    """5 أهداف (كل واحد 20%) وستوب. be=True: من بعد الهدف الأول الستوب كيتحرك للدخول.
+    كيرجع (R، شموع، واش ضرب الهدف الأول)"""
+    be = BE_AFTER_TP1 if be is None else be
     risk = abs(entry - sl)
     n = len(targets)
     part = 1.0 / n
     done, real, hit1 = 0, 0.0, False
+    stop = sl
     for k in range(len(h)):
-        if (side == 1 and l[k] <= sl) or (side == -1 and h[k] >= sl):   # الستوب أولا (تحفظ)
-            return real - (n - done) * part, k + 1, hit1
+        if (side == 1 and l[k] <= stop) or (side == -1 and h[k] >= stop):   # الستوب أولا (تحفظ)
+            return real + (n - done) * part * side * (stop - entry) / risk, k + 1, hit1
         while done < n and ((side == 1 and h[k] >= targets[done]) or
                             (side == -1 and l[k] <= targets[done])):
             real += part * side * (targets[done] - entry) / risk
             done += 1
             hit1 = True
+            if be:
+                stop = entry
         if done == n:
             return real, k + 1, hit1
     return real + (n - done) * part * side * (c[-1] - entry) / risk, len(c), hit1
@@ -115,7 +121,7 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} AMD={int(ga.AMD)} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} AMD={int(ga.AMD)} BE={int(BE_AFTER_TP1)} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",

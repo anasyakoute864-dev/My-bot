@@ -21,6 +21,9 @@ on:
       targets:
         description: "scalp: 5 أهداف بـ ATR مفصولة بفاصلة"
         default: "0.25,0.5,0.65,0.8,1.0"
+      be:
+        description: "الستوب للدخول من بعد الهدف الأول (1/0)"
+        default: "0"
       ict:
         description: "نموذج ICT: 0 (طافي) | 1 (مع السكور) | only (غير ICT)"
         default: "0"
@@ -75,6 +78,7 @@ jobs:
           AMD: ${{ github.event.inputs.amd || '0' }}
           ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
           ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
+          BE_AFTER_TP1: ${{ github.event.inputs.be || '0' }}
           ICT_HTF: ${{ github.event.inputs.ict_htf || '0' }}
           ICT_RANGE_ET: ${{ github.event.inputs.ict_range || '20-2' }}
           ICT_ENTRY_ET: ${{ github.event.inputs.ict_entry || '2-11' }}
@@ -87,7 +91,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_be${BE_AFTER_TP1}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()
