@@ -32,8 +32,8 @@ V_LOOK, V_DROP_ATR, V_REB_ATR, V_MAX_BARS = 12, 3.0, 2.0, 8
 AMD = os.getenv("AMD", "0") == "1"                  # تجميع -> تلاعب -> توزيع -> تأكيد (Power of 3)
 AMD_WEIGHT = float(os.getenv("AMD_WEIGHT", "2"))    # كم نقطة كيزيد فالسكور
 AMD_RANGE, AMD_RANGE_ATR, AMD_MAX_AGE = 12, 4.0, 8  # طول التجميع / أقصى عرضو بـ ATR / أقصى عمر للتلاعب (شموع)
-SCALP_STOP_ATR = 5.0                          # الستوب = 5 ATR
-SCALP_TARGETS = [0.25, 0.5, 0.65, 0.8, 1.0]   # الأهداف الخمسة بـ ATR
+SCALP_STOP_ATR = float(os.getenv("SCALP_STOP_ATR", "5.0"))   # الستوب = X ATR
+SCALP_TARGETS = [float(x) for x in os.getenv("SCALP_TARGETS", "0.25,0.5,0.65,0.8,1.0").split(",")]   # 5 أهداف بـ ATR
 # تواريخ/ساعات الأخبار القوية بتوقيت UTC (البوت ما كيدخلش ساعة قبل وساعة بعد)
 # المصادر: federalreserve.gov (FOMC) و bls.gov/schedule (CPI, NFP). تأكد منها من وقت لآخر، وزيد 2027 فآخر السنة.
 NEWS_BLACKOUT = [

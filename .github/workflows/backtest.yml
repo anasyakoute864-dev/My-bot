@@ -15,6 +15,12 @@ on:
       vshape:
         description: "كشف حركة V: 1 ولا 0"
         default: "0"
+      stop_atr:
+        description: "scalp: الستوب بـ ATR (5 = الحالي)"
+        default: "5.0"
+      targets:
+        description: "scalp: 5 أهداف بـ ATR مفصولة بفاصلة"
+        default: "0.25,0.5,0.65,0.8,1.0"
       amd:
         description: "AMD (تلاعب-توزيع-تأكيد): 1 ولا 0"
         default: "0"
@@ -55,6 +61,8 @@ jobs:
           MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
           VSHAPE: ${{ github.event.inputs.vshape || '0' }}
           AMD: ${{ github.event.inputs.amd || '0' }}
+          SCALP_STOP_ATR: ${{ github.event.inputs.stop_atr || '5.0' }}
+          SCALP_TARGETS: ${{ github.event.inputs.targets || '0.25,0.5,0.65,0.8,1.0' }}
           SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
           TRADE_HOURS_ET: ${{ github.event.inputs.hours || '3-12' }}
           SIGNAL_STYLE: ${{ github.event.inputs.style || 'swing' }}
@@ -62,7 +70,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()
@@ -71,8 +79,7 @@ jobs:
           git config user.email "gold-bot@users.noreply.github.com"
           git add -f results/bt_*.txt
           git commit -m "backtest log (symbol=${SYMBOL} style=${SIGNAL_STYLE})" || exit 0
-          git pull --rebase -q origin main || true
-          git push || true
+          for i in 1 2 3 4 5 6; do git pull --rebase -q origin main && git push -q && break; sleep $((RANDOM % 10 + 3)); done
         env:
           ENTRY_TF: ${{ github.event.inputs.tf || '1h' }}
           MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
