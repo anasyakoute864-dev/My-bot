@@ -36,6 +36,7 @@ ICT = os.getenv("ICT", "0") == "1"                  # نموذج ICT: رينج -
 ICT_ONLY = os.getenv("ICT_ONLY", "0") == "1"        # 1 = غير نموذج ICT (بلا السكور العادي)
 ICT_RANGE_ET = os.getenv("ICT_RANGE_ET", "20-2")    # ساعات الرينج (نيويورك). 20-2 = آسيا | 2-7 = لندن
 ICT_ENTRY_ET = os.getenv("ICT_ENTRY_ET", "2-11")    # ساعات السحب والدخول (نيويورك)
+ICT_HTF = os.getenv("ICT_HTF", "0") == "1"          # 1 = ما نداخلش ضد الاتجاه اليومي
 ICT_FRACS = [0.35, 0.5, 0.65, 0.8, 1.0]             # الأهداف = نسب من المسافة للطرف الآخر ديال الرينج
 SCALP_STOP_ATR = float(os.getenv("SCALP_STOP_ATR", "5.0"))   # الستوب = X ATR
 SCALP_TARGETS = [float(x) for x in os.getenv("SCALP_TARGETS", "0.25,0.5,0.65,0.8,1.0").split(",")]   # 5 أهداف بـ ATR
@@ -553,6 +554,9 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         return res
     if ICT:
         ict = ict_setup(df)
+        if ict and ICT_HTF and d_trend == -ict["dir"]:
+            out("⏸  ICT: ضد الاتجاه اليومي -> تخطيت.")
+            ict = None
         if ict:
             side = ict["dir"]
             out(f"✅ [ICT] {'BUY' if side == 1 else 'SELL'} @ {price:.2f}  Stop {ict['sl']:.2f}  Targets {[round(x, 2) for x in ict['targets']]}")

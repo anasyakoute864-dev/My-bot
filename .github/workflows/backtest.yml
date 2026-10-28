@@ -24,6 +24,9 @@ on:
       ict:
         description: "نموذج ICT: 0 (طافي) | 1 (مع السكور) | only (غير ICT)"
         default: "0"
+      ict_htf:
+        description: "ICT: ما نداخلش ضد الاتجاه اليومي (1/0)"
+        default: "0"
       ict_range:
         description: "ساعات الرينج نيويورك (20-2 آسيا | 2-7 لندن)"
         default: "20-2"
@@ -72,6 +75,7 @@ jobs:
           AMD: ${{ github.event.inputs.amd || '0' }}
           ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
           ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
+          ICT_HTF: ${{ github.event.inputs.ict_htf || '0' }}
           ICT_RANGE_ET: ${{ github.event.inputs.ict_range || '20-2' }}
           ICT_ENTRY_ET: ${{ github.event.inputs.ict_entry || '2-11' }}
           SCALP_STOP_ATR: ${{ github.event.inputs.stop_atr || '5.0' }}
@@ -83,7 +87,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_ict${ICT}${ICT_ONLY}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()
