@@ -208,7 +208,7 @@ def main():
     last = load_last()
     if result:
         if crs:
-            sent = load_state().get("cr", [])
+            sent = load_state().get("cr") or []
             sent = [sent] if isinstance(sent, str) else list(sent)
             for c_ in sorted(crs, key=lambda x: -x["bars_ago"]):   # الأقدم أولا
                 key = f"{c_['session']}|{c_['date']}|{c_['dir']}"
