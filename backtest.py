@@ -17,7 +17,7 @@ import requests
 
 import gold_analyzer as ga
 
-WINDOW = 800      # عدد شموع الساعة اللي كتعطى للتحليل فكل خطوة
+WINDOW = 1100 if ga.ENTRY_TF == "15m" else 800      # عدد شموع الساعة اللي كتعطى للتحليل فكل خطوة
 MAX_HOLD = 72     # أقصى مدة للصفقة (بالشموع)، من بعد كنسكروها بسعر الإغلاق
 SPREAD = 0.30     # تكلفة (سبريد + انزلاق) بالدولار فكل صفقة
 BE_AFTER_TP1 = os.getenv("BE_AFTER_TP1", "0") == "1"   # الستوب للدخول من بعد الهدف الأول
@@ -102,6 +102,8 @@ def run(df, dd, step=1, window=WINDOW):
         signal = None
         if res["decision"] == "trade":
             signal = "BUY" if res["side"] == 1 else "SELL"
+            if res.get("crabel"):
+                signal = f"CR|{res['crabel']['session']}|{res['crabel']['date']}|{signal}"
         is_new = signal is not None and signal != last_signal
         last_signal = signal          # نفس منطق البوت الحي
         if not is_new or i <= busy_until:
@@ -112,7 +114,7 @@ def run(df, dd, step=1, window=WINDOW):
             keep = 0
             for j in range(len(fut)):
                 ej = _et(fut["time"].iloc[j])
-                if ej.date() != e0 or ej.hour >= ga.CRABEL_EXIT_ET:
+                if ej.date() != e0 or ej.hour >= res["crabel"]["exit"]:
                     break
                 keep += 1
             fut = fut.iloc[:keep]
@@ -151,7 +153,7 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} BE={int(BE_AFTER_TP1)} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} nr7={int(ga.CRABEL_NR7)} X={ga.CRABEL_X} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} BE={int(BE_AFTER_TP1)} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} sessions={ga.CRABEL_SESSIONS} X={ga.CRABEL_X} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",

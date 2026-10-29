@@ -33,13 +33,11 @@ ICT = os.getenv("ICT", "0") == "1"                  # نموذج ICT: رينج -
 ICT_ONLY = os.getenv("ICT_ONLY", "0") == "1"        # 1 = غير نموذج ICT (بلا السكور العادي)
 ICT_RANGE_ET = os.getenv("ICT_RANGE_ET", "20-2")    # ساعات الرينج (نيويورك). 20-2 = آسيا | 2-7 = لندن
 ICT_ENTRY_ET = os.getenv("ICT_ENTRY_ET", "2-11")    # ساعات السحب والدخول (نيويورك)
-CRABEL = os.getenv("CRABEL", "0") == "1"            # Toby Crabel: Opening Range Breakout (Stretch) + NR7
+CRABEL = os.getenv("CRABEL", "0") == "1"            # Toby Crabel: Opening Range Breakout (Stretch)
 CRABEL_ONLY = os.getenv("CRABEL_ONLY", "0") == "1"
-CRABEL_OPEN_ET = int(os.getenv("CRABEL_OPEN_ET", "8"))     # ساعة فتحة الجلسة (نيويورك)
-CRABEL_EXIT_ET = int(os.getenv("CRABEL_EXIT_ET", "17"))    # الخروج فآخر الجلسة (نيويورك)
-CRABEL_NR7 = os.getenv("CRABEL_NR7", "1") == "1"           # الدخول غير بعد يوم NR7
-CRABEL_N = int(os.getenv("CRABEL_N", "10"))                # أيام حساب الـ Stretch
-CRABEL_X = float(os.getenv("CRABEL_X", "1.0"))             # معامل الـ Stretch (1 = كيف Crabel)
+CRABEL_SESSIONS = os.getenv("CRABEL_SESSIONS", "3-11,8-17")   # جلسات: ساعة الفتحة-ساعة الخروج (نيويورك). لندن 3-11 | نيويورك 8-17
+CRABEL_N = int(os.getenv("CRABEL_N", "10"))                    # عدد الجلسات السابقة لحساب الـ Stretch
+CRABEL_X = float(os.getenv("CRABEL_X", "1.0"))                 # 1 = Stretch كيف هو
 ICT_HTF = os.getenv("ICT_HTF", "0") == "1"          # 1 = ما نداخلش ضد الاتجاه اليومي
 ICT_FRACS = [0.35, 0.5, 0.65, 0.8, 1.0]             # الأهداف = نسب من المسافة للطرف الآخر ديال الرينج
 SCALP_STOP_ATR = float(os.getenv("SCALP_STOP_ATR", "5.0"))   # الستوب = X ATR
@@ -336,59 +334,60 @@ def ict_setup(df):
     return None
 
 
-# ---------------------------------------------------------------- Crabel: Opening Range Breakout (Stretch) + NR7
-def crabel_setup(df, dd):
+# ---------------------------------------------------------------- Crabel: Opening Range Breakout (Stretch)
+def crabel_setup(df):
     """
-    كيف وصفو Toby Crabel:
-      Stretch = معدل آخر N (10) أيام لمسافة الفتحة لأقرب طرف (min(High-Open, Open-Low)).
-      Buy stop = Open + Stretch | Sell stop = Open - Stretch. الأول اللي كيتلمس هو الصفقة،
-      والطرف الآخر هو الستوب. الخروج فآخر الجلسة. فلتر NR7: اليوم اللي قبل هو أضيق مدى فآخر 7 أيام.
-    كيرجع None إلا ما كاينش اختراق جديد (آخر شمعتين).
+    Toby Crabel ORB، لكل جلسة (لندن ونيويورك):
+      Stretch = معدل آخر 10 جلسات لمسافة الفتحة لأقرب طرف: min(High-Open, Open-Low).
+      Buy stop = Open + Stretch | Sell stop = Open - Stretch. الأول اللي كيتلمس هو الصفقة (دخول فمستوى الأمر)،
+      والطرف الآخر هو الستوب. الخروج فآخر الجلسة.
     """
     n = len(df)
-    if n < 30 or dd is None or len(dd) < max(CRABEL_N, 7) + 1:
+    if n < 100:
         return None
     t = pd.to_datetime(df["time"])
     t = t.dt.tz_localize("UTC") if t.dt.tz is None else t.dt.tz_convert("UTC")
     et = t.dt.tz_convert("America/New_York")
-    hrs, dates = et.dt.hour.values, et.dt.date.values
-    if hrs[-1] >= CRABEL_EXIT_ET:
-        return None
-    idx = np.where((dates == dates[-1]) & (hrs >= CRABEL_OPEN_ET))[0]
-    if len(idx) == 0 or hrs[idx[0]] != CRABEL_OPEN_ET:
-        return None
-    td = pd.to_datetime(dd["time"])
-    dday = (td.dt.tz_convert("America/New_York") if td.dt.tz is not None else td).dt.date
-    past = dd[(dday < dates[-1]).values]
-    if len(past) < max(CRABEL_N, 7):
-        return None
-    last_n = past.tail(CRABEL_N)
-    noise = np.minimum(last_n["high"].values - last_n["open"].values, last_n["open"].values - last_n["low"].values)
-    stretch = float(np.mean(noise)) * CRABEL_X
-    if stretch <= 0:
-        return None
-    if CRABEL_NR7:
-        rng = (past["high"] - past["low"]).tail(7).values
-        if rng[-1] > rng.min():
-            return None
+    hrs, mins, dates = et.dt.hour.values, et.dt.minute.values, et.dt.date.values
     o, h, l, c = (df[k].values for k in ("open", "high", "low", "close"))
-    op = float(o[idx[0]])
-    buy, sell = op + stretch, op - stretch
-    k = next((i for i in idx if h[i] >= buy or l[i] <= sell), None)
-    if k is None or n - 1 - k > 1:
-        return None
-    if h[k] >= buy and l[k] <= sell:      # جوج د الأوامر فنفس الشمعة = غامض (Crabel: خسارة)
-        return None
-    d = 1 if h[k] >= buy else -1
-    sl = sell if d == 1 else buy
-    price = float(c[-1])
-    if d * (price - sl) <= 0:
-        return None
-    if any((d == 1 and l[i] <= sl) or (d == -1 and h[i] >= sl) for i in range(k + 1, n)):
-        return None
-    return {"dir": d, "open": op, "stretch": stretch, "buy": float(buy), "sell": float(sell),
-            "sl": float(sl), "risk": float(abs(price - sl)), "bars_ago": int(n - 1 - k)}
-
+    today = dates[-1]
+    for sess in CRABEL_SESSIONS.split(","):
+        h0, h1 = (int(x) for x in sess.strip().split("-"))
+        if not (h0 <= hrs[-1] < h1):
+            continue
+        by_day = {}
+        for i in np.where((hrs >= h0) & (hrs < h1))[0]:
+            by_day.setdefault(dates[i], []).append(i)
+        cur = by_day.get(today)
+        if not cur or hrs[cur[0]] != h0 or mins[cur[0]] != 0:
+            continue
+        noise = []
+        for d_ in sorted(by_day):
+            ix = by_day[d_]
+            if d_ >= today or hrs[ix[0]] != h0 or mins[ix[0]] != 0:
+                continue
+            op_ = o[ix[0]]
+            noise.append(min(h[ix].max() - op_, op_ - l[ix].min()))
+        if len(noise) < CRABEL_N:
+            continue
+        stretch = float(np.mean(noise[-CRABEL_N:])) * CRABEL_X
+        if stretch <= 0:
+            continue
+        op = float(o[cur[0]])
+        buy, sell = op + stretch, op - stretch
+        k = next((i for i in cur if h[i] >= buy or l[i] <= sell), None)
+        if k is None or n - 1 - k > 1:
+            continue
+        if h[k] >= buy and l[k] <= sell:      # جوج د الأوامر فنفس الشمعة: غامض، كنتخطاو
+            continue
+        d = 1 if h[k] >= buy else -1
+        entry, sl = (buy, sell) if d == 1 else (sell, buy)
+        if any((d == 1 and l[i] <= sl) or (d == -1 and h[i] >= sl) for i in range(k + 1, n)):
+            continue                          # الستوب تضرب
+        return {"dir": d, "session": sess.strip(), "date": str(today), "open": op, "stretch": stretch,
+                "entry": float(entry), "sl": float(sl), "risk": float(abs(entry - sl)), "exit": h1,
+                "bars_ago": int(n - 1 - k)}
+    return None
 
 # ---------------------------------------------------------------- Breakout
 def breakout(df, look=20):
@@ -548,6 +547,17 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         bar_close = None
     res = {"v_alert": v_shape(df), "bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
+    if CRABEL:   # Crabel كيخدم بوحدو: بلا فلتر أخبار ولا ساعات ولا سكور
+        cr = crabel_setup(df)
+        if cr:
+            side, ent = cr["dir"], cr["entry"]
+            out(f"✅ [Crabel] {'BUY' if side == 1 else 'SELL'} @ {ent:.2f}  Stop {cr['sl']:.2f}  (جلسة {cr['session']}, Open {cr['open']:.2f}, Stretch {cr['stretch']:.2f})")
+            res.update(decision="trade", side=side, entry=ent, sl=cr["sl"], tp1=ent + side * cr["risk"],
+                       tp2=ent + side * 2 * cr["risk"], rr=1.0, risk=cr["risk"], entry2=ent, targets=None, crabel=cr)
+            return res
+        if CRABEL_ONLY:
+            out("⏸  Crabel: ما كاينش اختراق Stretch.")
+            return res
     blocked = news_blocked(now)
     if blocked:
         out(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
@@ -558,18 +568,6 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         out(f"⏸  خارج ساعات التداول ({TRADE_HOURS_ET} نيويورك) -> ما كاينش دخول دابا.")
         res.update(decision="off_hours")
         return res
-    if CRABEL:
-        cr = crabel_setup(df, dd)
-        if cr:
-            side = cr["dir"]
-            out(f"✅ [Crabel ORB] {'BUY' if side == 1 else 'SELL'} @ {price:.2f}  Stop {cr['sl']:.2f}  (Open {cr['open']:.2f}, Stretch {cr['stretch']:.2f})")
-            res.update(decision="trade", side=side, entry=float(price), sl=cr["sl"], tp1=float(price + side * cr["risk"]),
-                       tp2=float(price + side * 2 * cr["risk"]), rr=1.0, risk=cr["risk"],
-                       entry2=float(price - side * 0.3 * a), targets=None, crabel=cr)
-            return res
-        if CRABEL_ONLY:
-            out("⏸  Crabel: ما كاينش اختراق Stretch جديد.")
-            return res
     if ICT:
         ict = ict_setup(df)
         if ict and ICT_HTF and d_trend == -ict["dir"]:

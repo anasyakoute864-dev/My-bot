@@ -133,11 +133,13 @@ def build_message(r, new_signal=False):
         extra = f" (النقاط {sc:+.1f} من أصل ±{r.get('min_score', '?')})" if sc is not None else ""
         return f"⏸ ما كاينش صفقة دابا: {why}{extra}"
     buy = r["side"] == 1
-    lines = ([LABEL] if LABEL else []) + [f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f} - {r['entry2']:.0f}"]
+    head = f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f}"
+    if not r.get("crabel"):
+        head += f" - {r['entry2']:.0f}"
+    lines = ([LABEL] if LABEL else []) + [head]
     if r.get("crabel"):
-        lines.append(f"الخروج: ⏰ آخر الجلسة ({os.getenv('CRABEL_EXIT_ET', '17')}:00 نيويورك) ولا الستوب")
         lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
-        lines.append(f"🧩 Crabel ORB: Open {r['crabel']['open']:.0f} ± Stretch {r['crabel']['stretch']:.1f}")
+        lines.append(f"الخروج: ⏰ آخر الجلسة ({r['crabel']['exit']}:00 نيويورك)")
     else:
         for name, t in zip(ORD, targets(r)):
             lines.append(f"الهدف {name}: {t:.0f}")
@@ -145,12 +147,12 @@ def build_message(r, new_signal=False):
         lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
     if r.get("ict"):
         lines.append("🧩 ICT: تجميع ← تلاعب ← CISD" + (" ← FVG" if r["ict"].get("fvg") else ""))
-    if r.get("bar_close"):
+    if r.get("bar_close") and not r.get("crabel"):
         try:
             t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")
             lines.append(f"🕒 وقت الإشارة: {t:%H:%M} (نيويورك)")
             a, b = (int(x) for x in os.getenv("STRONG_HOURS_ET", "3-12").split("-"))
-            if not r.get("crabel") and not (a <= t.hour <= b):
+            if not (a <= t.hour <= b):
                 lines.append("⚠️ خارج ساعات لندن/نيويورك: أضعف فالـ backtest (PF أقل من 1)، خاطر بأقل")
         except Exception:
             pass
@@ -183,6 +185,10 @@ def main():
     signal = None
     if result and result.get("decision") == "trade":
         signal = "BUY" if result["side"] == 1 else "SELL"
+    cr = result.get("crabel") if result else None
+    cr_key = f"{cr['session']}|{cr['date']}|{cr['dir']}" if cr else None
+    if cr:
+        signal = None   # Crabel عندو مفتاح خاص (جلسة+نهار)، ما كيتدخلش فسكور البوت الأول
 
     if result:  # حالة آخر تشغيل (كنقراوها للتشخيص)
         import datetime as _dt
@@ -191,14 +197,18 @@ def main():
     v_key = maybe_v_alert(result)
     last = load_last()
     if result:
-        if signal and signal != last:
+        if cr:
+            if cr_key != load_state().get("cr"):
+                send(build_message(to_spot(result), new_signal=True))
+        elif signal and signal != last:
             send(build_message(to_spot(result), new_signal=True))
         elif ALWAYS_SEND:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
             send(build_message(to_spot(result)))
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"signal": signal, "v": v_key if v_key is not None else load_state().get("v")}, f)
+        json.dump({"signal": signal, "v": v_key if v_key is not None else load_state().get("v"),
+                   "cr": cr_key if cr_key else load_state().get("cr")}, f)
 
 
 if __name__ == "__main__":
