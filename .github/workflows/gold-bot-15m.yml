@@ -62,7 +62,9 @@ jobs:
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
           STRONG_HOURS_ET: "3-12"   # الإشارات خارج هاد الساعات كتجي بتحذير
-          V_ALERT: "1"   # تنبيه حركة V (معلومة فقط)
+          VTRADE: "1"   # حركة V كصفقة: شراء/بيع + دخول + ستوب + 5 أهداف (تجريبي)
+          V_MIN_RR: "0"
+          V_ALERT: "0"   # تنبيه حركة V (معلومة فقط)
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python gold_bot.py
