@@ -54,6 +54,7 @@ jobs:
           CRABEL: "1"   # Toby Crabel: Opening Range Breakout (Stretch)
           CRABEL_ONLY: "0"   # 0 = Crabel كل نهار + استراتيجية البوت الأول (السكور) كيخدمو مع بعض
           CRABEL_SESSIONS: "3-11,8-17"   # لندن 03:00-11:00 | نيويورك 08:00-17:00 (نيويورك)
+          CRABEL_TP: "2"   # TP = 2 × Stretch (نفس مسافة الستوب، RR 1:1)
           ICT: "0"   # نموذج ICT: رينج آسيا -> سحب سيولة -> CISD -> FVG -> هدف الرينج
           ICT_HTF: "1"   # ما نداخلش ICT ضد الاتجاه اليومي
           ICT_RANGE_ET: "20-2"
