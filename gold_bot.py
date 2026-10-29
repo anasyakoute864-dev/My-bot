@@ -145,8 +145,6 @@ def build_message(r, new_signal=False):
         lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
     if r.get("ict"):
         lines.append("🧩 ICT: تجميع ← تلاعب ← CISD" + (" ← FVG" if r["ict"].get("fvg") else ""))
-    if r.get("amd") and r["amd"]["dir"] == r["side"]:
-        lines.append("🧩 تأكيد: تجميع ← تلاعب ← توزيع")
     if r.get("bar_close"):
         try:
             t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")

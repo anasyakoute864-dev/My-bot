@@ -45,9 +45,6 @@ on:
       ict_entry:
         description: "ساعات السحب والدخول نيويورك"
         default: "2-11"
-      amd:
-        description: "AMD (تلاعب-توزيع-تأكيد): 1 ولا 0"
-        default: "0"
       symbol:
         description: "الرمز: GC=F (فيوتشرز) ولا XAUUSD=X (فوري)"
         default: "GC=F"
@@ -84,7 +81,6 @@ jobs:
           ENTRY_TF: ${{ github.event.inputs.tf || '1h' }}
           MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
           VSHAPE: ${{ github.event.inputs.vshape || '0' }}
-          AMD: ${{ github.event.inputs.amd || '0' }}
           ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
           ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
           BE_AFTER_TP1: ${{ github.event.inputs.be || '0' }}
@@ -104,7 +100,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_be${BE_AFTER_TP1}_cr${CRABEL}${CRABEL_ONLY}n${CRABEL_NR7}x${CRABEL_X}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_be${BE_AFTER_TP1}_cr${CRABEL}${CRABEL_ONLY}n${CRABEL_NR7}x${CRABEL_X}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()

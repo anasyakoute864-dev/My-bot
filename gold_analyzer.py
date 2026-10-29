@@ -29,9 +29,6 @@ STYLE = os.getenv("SIGNAL_STYLE", "swing")
 TRADE_HOURS_ET = os.getenv("TRADE_HOURS_ET", "3-12")
 VSHAPE = os.getenv("VSHAPE", "0") == "1"       # كشف حركة V (نزول/صعود سريع ثم انعكاس)
 V_LOOK, V_DROP_ATR, V_REB_ATR, V_MAX_BARS = 12, 3.0, 2.0, 8
-AMD = os.getenv("AMD", "0") == "1"                  # تجميع -> تلاعب -> توزيع -> تأكيد (Power of 3)
-AMD_WEIGHT = float(os.getenv("AMD_WEIGHT", "2"))    # كم نقطة كيزيد فالسكور
-AMD_RANGE, AMD_RANGE_ATR, AMD_MAX_AGE = 12, 4.0, 8  # طول التجميع / أقصى عرضو بـ ATR / أقصى عمر للتلاعب (شموع)
 ICT = os.getenv("ICT", "0") == "1"                  # نموذج ICT: رينج -> سحب سيولة -> CISD -> FVG -> هدف الرينج
 ICT_ONLY = os.getenv("ICT_ONLY", "0") == "1"        # 1 = غير نموذج ICT (بلا السكور العادي)
 ICT_RANGE_ET = os.getenv("ICT_RANGE_ET", "20-2")    # ساعات الرينج (نيويورك). 20-2 = آسيا | 2-7 = لندن
@@ -239,54 +236,6 @@ def v_shape(df):
         fall = h[k] - c[-1]
         if rise >= V_DROP_ATR * a and fall >= V_REB_ATR * a and fall >= 0.5 * rise:
             return {"dir": -1, "extreme": float(h[k]), "drop": float(rise), "reb": float(fall), "bars_ago": bars}
-    return None
-
-
-# ---------------------------------------------------------------- AMD: تلاعب -> توزيع -> تأكيد
-def amd_setup(df):
-    """
-    1) تجميع (Accumulation): رينج ضيق (AMD_RANGE شمعة، عرضو <= AMD_RANGE_ATR * ATR).
-    2) تلاعب (Manipulation): شمعة كتخترق الرينج (قمة/قاع) وكتسد داخلو = مصيدة (Stop-hunt).
-    3) توزيع (Distribution): السعر كيمشي بقوة فالاتجاه المعاكس لتلاعب (>= 1.5 ATR من طرف التلاعب).
-    4) تأكيد (Confirmation): شمعة كتسد من الجهة الأخرى ديال وسط الرينج وبلون الاتجاه.
-       كنعطيو الدخول غير فأول شمعتين من التأكيد (ما نجريوش وراه).
-    كيرجع None إلا ما تحقق الشرط. dir=+1 شراء (تلاعب لتحت)، -1 بيع (تلاعب لفوق).
-    """
-    n = len(df)
-    if n < AMD_RANGE + AMD_MAX_AGE + 3:
-        return None
-    o, h, l, c = (df[k].values for k in ("open", "high", "low", "close"))
-    a = df["atr"].values
-    for m in range(n - 2, n - 2 - AMD_MAX_AGE, -1):
-        s0 = m - AMD_RANGE
-        if s0 < 0:
-            break
-        rh, rl = h[s0:m].max(), l[s0:m].min()
-        if rh - rl > AMD_RANGE_ATR * a[m]:
-            continue
-        mid = (rh + rl) / 2
-        for d in (-1, 1):
-            if d == -1:
-                manip = h[m] > rh + 0.1 * a[m] and c[m] <= rh
-                ext = h[m]
-                if h[m + 1:].max() > ext:
-                    continue
-            else:
-                manip = l[m] < rl - 0.1 * a[m] and c[m] >= rl
-                ext = l[m]
-                if l[m + 1:].min() < ext:
-                    continue
-            if not manip:
-                continue
-            for k in range(m + 1, n):
-                move = (ext - c[k]) if d == -1 else (c[k] - ext)
-                beyond = c[k] < mid if d == -1 else c[k] > mid
-                candle = c[k] < o[k] if d == -1 else c[k] > o[k]
-                if beyond and candle and 1.5 * a[k] <= move <= 6 * a[k]:
-                    if n - 1 - k <= 1:
-                        return {"dir": d, "range": (float(rl), float(rh)), "extreme": float(ext),
-                                "manip_ago": n - 1 - m, "conf_ago": n - 1 - k, "move": float(move)}
-                    break
     return None
 
 
@@ -546,7 +495,6 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     sweep = find_sweep(df, pv)
     bo, bo_lvl = breakout(df)
     vs = v_shape(df) if VSHAPE else None
-    amd = amd_setup(df) if AMD else None
     fib = fib_zone(df, pv)
 
     score, why, items = 0.0, [], []
@@ -567,9 +515,6 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
             f"سحب سيولة {'تحت قاع' if sweep['dir']==1 else 'فوق قمة'} {sweep['level']:.1f} قبل {sweep['bars_ago']} شمعة -> {sweep['verdict']}")
     if vs:
         add(2 * vs["dir"], f"حركة V {'صاعدة' if vs['dir'] > 0 else 'نازلة'}: {vs['drop']:.1f} نقطة ثم رجوع {vs['reb']:.1f} فـ {vs['bars_ago']} شموع (القاع/القمة {vs['extreme']:.1f})")
-    if amd:
-        add(AMD_WEIGHT * amd["dir"],
-            f"AMD {'شراء' if amd['dir'] > 0 else 'بيع'}: رينج [{amd['range'][0]:.1f}-{amd['range'][1]:.1f}] -> تلاعب قبل {amd['manip_ago']} شموع ({amd['extreme']:.1f}) -> توزيع {amd['move']:.1f} نقطة -> تأكيد")
     for lo, hi, d in fvgs[-3:]:
         if lo - 0.3 * a <= price <= hi + 0.3 * a:
             add(1 * d, f"السعر داخل/قريب FVG {'صاعد' if d>0 else 'نازل'} [{lo:.1f}-{hi:.1f}]")
@@ -602,7 +547,7 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     except Exception:
         bar_close = None
     res = {"v_alert": v_shape(df), "bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
-           "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None, "amd": amd}
+           "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
     blocked = news_blocked(now)
     if blocked:
         out(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
@@ -661,16 +606,12 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         base = [x for x in swing_lows]
         if sweep and sweep["dir"] == 1:
             base.append(sweep["extreme"])
-        if amd and amd["dir"] == 1:
-            base.append(amd["extreme"])
         sl = (min(base) if base else price - 1.5 * a) - 0.3 * a
         risk = price - sl
     else:
         base = [x for x in swing_highs]
         if sweep and sweep["dir"] == -1:
             base.append(sweep["extreme"])
-        if amd and amd["dir"] == -1:
-            base.append(amd["extreme"])
         sl = (max(base) if base else price + 1.5 * a) + 0.3 * a
         risk = sl - price
     risk = min(max(risk, 0.8 * a), 3 * a)
