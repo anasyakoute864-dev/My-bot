@@ -191,32 +191,35 @@ def main():
 
     # الإشارة = الاتجاه فقط (BUY/SELL). السعر كيتبدل كل مرة، ما خاصوش يدخل فالمقارنة
     signal = None
-    if result and result.get("decision") == "trade":
+    if result and result.get("decision") == "trade" and not result.get("crabel"):
         signal = "BUY" if result["side"] == 1 else "SELL"
-    cr = result.get("crabel") if result else None
-    cr_key = f"{cr['session']}|{cr['date']}|{cr['dir']}" if cr else None
-    if cr:
-        signal = None   # Crabel عندو مفتاح خاص (جلسة+نهار)، ما كيتدخلش فسكور البوت الأول
-
+    crs = result.get("crabel_all") if result else []
     if result:  # حالة آخر تشغيل (كنقراوها للتشخيص)
         import datetime as _dt
         with open("live_status.txt", "w", encoding="utf-8") as f:
             f.write(f"{_dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC\n{buf.getvalue()}")
     v_key = maybe_v_alert(result)
+    cr_sent = None
     last = load_last()
     if result:
-        if cr:
-            if cr_key != load_state().get("cr"):
-                send(build_message(to_spot(result), new_signal=True))
-        elif signal and signal != last:
+        if crs:
+            sent = load_state().get("cr", [])
+            sent = [sent] if isinstance(sent, str) else list(sent)
+            for c_ in sorted(crs, key=lambda x: -x["bars_ago"]):   # الأقدم أولا
+                key = f"{c_['session']}|{c_['date']}|{c_['dir']}"
+                if key not in sent:
+                    send(build_message(to_spot(ga.crabel_result(result, c_)), new_signal=True))
+                    sent.append(key)
+            cr_sent = sent[-10:]
+        if signal and signal != last:
             send(build_message(to_spot(result), new_signal=True))
-        elif ALWAYS_SEND:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
+        elif ALWAYS_SEND and not crs:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
             send(build_message(to_spot(result)))
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
         json.dump({"signal": signal, "v": v_key if v_key is not None else load_state().get("v"),
-                   "cr": cr_key if cr_key else load_state().get("cr")}, f)
+                   "cr": cr_sent if cr_sent is not None else load_state().get("cr")}, f)
 
 
 if __name__ == "__main__":

@@ -336,16 +336,13 @@ def ict_setup(df):
 
 
 # ---------------------------------------------------------------- Crabel: Opening Range Breakout (Stretch)
-def crabel_setup(df):
-    """
-    Toby Crabel ORB، لكل جلسة (لندن ونيويورك):
-      Stretch = معدل آخر 10 جلسات لمسافة الفتحة لأقرب طرف: min(High-Open, Open-Low).
-      Buy stop = Open + Stretch | Sell stop = Open - Stretch. الأول اللي كيتلمس هو الصفقة (دخول فمستوى الأمر)،
-      والطرف الآخر هو الستوب. الخروج فآخر الجلسة.
-    """
+def crabel_all(df):
+    """كيرجع لائحة الصفقات الصالحة (جلسة لندن/نيويورك): كل جلسة فيها اختراق Stretch والستوب ما تضربش وTP ما تضربش.
+    كل صفقة كتبقى صالحة حتى الستوب/الـTP ولا آخر الجلسة."""
     n = len(df)
+    out_ = []
     if n < 100:
-        return None
+        return out_
     t = pd.to_datetime(df["time"])
     t = t.dt.tz_localize("UTC") if t.dt.tz is None else t.dt.tz_convert("UTC")
     et = t.dt.tz_convert("America/New_York")
@@ -383,13 +380,33 @@ def crabel_setup(df):
             continue
         d = 1 if h[k] >= buy else -1
         entry, sl = (buy, sell) if d == 1 else (sell, buy)
+        tp = float(entry + d * CRABEL_TP * stretch) if CRABEL_TP > 0 else None
         if any((d == 1 and l[i] <= sl) or (d == -1 and h[i] >= sl) for i in range(k + 1, n)):
             continue                          # الستوب تضرب
-        return {"dir": d, "session": sess.strip(), "date": str(today), "open": op, "stretch": stretch,
-                "entry": float(entry), "sl": float(sl), "risk": float(abs(entry - sl)), "exit": h1,
-                "tp": float(entry + d * CRABEL_TP * stretch) if CRABEL_TP > 0 else None,
-                "bars_ago": int(n - 1 - k)}
-    return None
+        if tp is not None and any((d == 1 and h[i] >= tp) or (d == -1 and l[i] <= tp) for i in range(k + 1, n)):
+            continue                          # الـTP تضرب
+        out_.append({"dir": d, "session": sess.strip(), "date": str(today), "open": op, "stretch": stretch,
+                     "entry": float(entry), "sl": float(sl), "risk": float(abs(entry - sl)), "exit": h1,
+                     "tp": tp, "bars_ago": int(n - 1 - k)})
+    return out_
+
+
+def crabel_setup(df):
+    """الصفقة الأحدث (آخر اختراق) ولا None"""
+    allc = crabel_all(df)
+    return min(allc, key=lambda x: x["bars_ago"]) if allc else None
+
+
+def crabel_result(res, cr):
+    """نسخة من النتيجة كتمثل صفقة Crabel وحدة"""
+    side, ent = cr["dir"], cr["entry"]
+    r = dict(res)
+    r.update(decision="trade", side=side, entry=ent, sl=cr["sl"],
+             tp1=cr["tp"] if cr["tp"] else ent + side * cr["risk"],
+             tp2=cr["tp"] if cr["tp"] else ent + side * 2 * cr["risk"],
+             rr=1.0, risk=cr["risk"], entry2=ent, targets=None, crabel=cr)
+    return r
+
 
 # ---------------------------------------------------------------- Breakout
 def breakout(df, look=20):
@@ -482,7 +499,7 @@ def in_trade_hours(df):
 
 
 # ---------------------------------------------------------------- القرار
-def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
+def _evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     """منطق القرار لوحدو (بلا تحميل بيانات). كيستعملو البوت الحي والـ backtest."""
     out = print if verbose else (lambda *args, **kwargs: None)
     macro_notes = macro_notes or []
@@ -549,17 +566,16 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         bar_close = None
     res = {"v_alert": v_shape(df), "bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
-    if CRABEL:   # Crabel كيخدم بوحدو: بلا فلتر أخبار ولا ساعات ولا سكور
-        cr = crabel_setup(df)
-        if cr:
-            side, ent = cr["dir"], cr["entry"]
-            out(f"✅ [Crabel] {'BUY' if side == 1 else 'SELL'} @ {ent:.2f}  Stop {cr['sl']:.2f}  (جلسة {cr['session']}, Open {cr['open']:.2f}, Stretch {cr['stretch']:.2f})")
-            res.update(decision="trade", side=side, entry=ent, sl=cr["sl"], tp1=cr["tp"] if cr["tp"] else ent + side * cr["risk"],
-                       tp2=cr["tp"] if cr["tp"] else ent + side * 2 * cr["risk"], rr=1.0, risk=cr["risk"], entry2=ent, targets=None, crabel=cr)
+    if CRABEL and CRABEL_ONLY:   # Crabel بوحدو: بلا فلتر أخبار ولا ساعات ولا سكور
+        crs = crabel_all(df)
+        if crs:
+            cr = min(crs, key=lambda x: x["bars_ago"])
+            out(f"✅ [Crabel] {'BUY' if cr['dir'] == 1 else 'SELL'} @ {cr['entry']:.2f}  Stop {cr['sl']:.2f}  (جلسة {cr['session']}, Open {cr['open']:.2f}, Stretch {cr['stretch']:.2f})")
+            res = crabel_result(res, cr)
+            res["crabel_all"] = crs
             return res
-        if CRABEL_ONLY:
-            out("⏸  Crabel: ما كاينش اختراق Stretch.")
-            return res
+        out("⏸  Crabel: ما كاينش اختراق Stretch.")
+        return res
     blocked = news_blocked(now)
     if blocked:
         out(f"⛔ خبر قوي قريب ({blocked} UTC) -> ما كاينش دخول دابا.")
@@ -638,6 +654,13 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     res.update(decision="trade", side=side, entry=float(price), sl=float(sl), tp1=float(tp1),
                tp2=float(tp3), rr=float(rr), risk=float(risk),
                entry2=float(price - side * 0.3 * a))
+    return res
+
+
+def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
+    res = _evaluate(df, dd, macro, macro_notes, verbose, now)
+    if CRABEL and not CRABEL_ONLY:   # Crabel كيخدم بجنب البوت الأول، ماكيبدل والو فقراره
+        res["crabel_all"] = crabel_all(df)
     return res
 
 
