@@ -147,15 +147,17 @@ def build_message(r, new_signal=False):
         lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
     if r.get("ict"):
         lines.append("🧩 ICT: تجميع ← تلاعب ← CISD" + (" ← FVG" if r["ict"].get("fvg") else ""))
-    if r.get("bar_close") and not r.get("crabel"):
+    if r.get("bar_close"):
         try:
             t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")
             lines.append(f"🕒 وقت الإشارة: {t:%H:%M} (نيويورك)")
             a, b = (int(x) for x in os.getenv("STRONG_HOURS_ET", "3-12").split("-"))
-            if not (a <= t.hour <= b):
+            if not r.get("crabel") and not (a <= t.hour <= b):
                 lines.append("⚠️ خارج ساعات لندن/نيويورك: أضعف فالـ backtest (PF أقل من 1)، خاطر بأقل")
         except Exception:
             pass
+    if r.get("crabel"):
+        lines.append("Crabel")
     return "\n".join(lines)
 
 
