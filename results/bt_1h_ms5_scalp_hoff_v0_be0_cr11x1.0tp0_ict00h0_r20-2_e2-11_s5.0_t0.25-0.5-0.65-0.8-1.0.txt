@@ -16,17 +16,17 @@ See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace 
 /opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/yfinance/multi.py:224: Pandas4Warning: The inplace keyword in DataFrame.sort_index is deprecated and will be removed in a future version (PDEP-8).
 See https://pandas.pydata.org/docs/dev/whatsnew/v3.1.0.html#deprecation-inplace for more details.
   data.sort_index(level=0, axis=1, inplace=True)
-1h: 13723 شمعة | 1d: 1245 شمعة | step=1
+1h: 13660 شمعة | 1d: 1245 شمعة | step=1
 📈 Backtest الذهب (1h) MIN_SCORE=5 scalp V=0 BE=0 CRABEL=1only sessions=3-11,8-17 X=1.0 TP=0.0 ICT=0 range=20-2 entry=2-11 stop=5.0ATR targets=[0.25, 0.5, 0.65, 0.8, 1.0]
 من 2024-07-30 إلى 2026-10-29
 
-عدد الصفقات: 840  (~1.4 فاليوم)
-نسبة النجاح (صافي R>0): 47%
-متوسط الصفقة: +0.19R
-المجموع: +156.5R
-Profit factor: 1.46
-أكبر تراجع: -16.6R
-أطول سلسلة خسائر: 9
+عدد الصفقات: 671  (~1.1 فاليوم)
+نسبة النجاح (صافي R>0): 43%
+متوسط الصفقة: +0.10R
+المجموع: +70.3R
+Profit factor: 1.23
+أكبر تراجع: -21.3R
+أطول سلسلة خسائر: 10
 
 
 (بلا ماكرو، تكلفة 0.3$ فالصفقة، R = المخاطرة ديال الصفقة)
