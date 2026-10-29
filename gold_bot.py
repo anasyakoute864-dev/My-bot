@@ -169,7 +169,11 @@ def main():
                 "tp1": 4145.0, "tp2": 4160.0, "risk": 104.0,
                 "targets": [4145.0, 4150.0, 4153.0, 4156.0, 4160.0],
                 "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
-        send("🧪 رسالة تجريبية (وهمية)\n\n" + build_message(fake))
+        send("🧪 رسالة تجريبية (وهمية) - إشارة ديالنا (السكور)\n\n" + build_message(fake))
+        fake_cr = {"decision": "trade", "side": 1, "entry": 4140.0, "entry2": 4140.0, "sl": 4128.0, "risk": 12.0,
+                   "targets": None, "crabel": {"exit": 17},
+                   "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
+        send("🧪 رسالة تجريبية (وهمية) - إشارة Crabel\n\n" + build_message(fake_cr))
         if V_ALERT:
             send("🧪 تنبيه V (وهمي)\n\n" + v_message({"dir": 1, "drop": 30.0, "reb": 20.0, "bars_ago": 6, "extreme": 3990.0},
                                                       0.0, pd.Timestamp.now(tz="UTC").floor("15min").isoformat()))
