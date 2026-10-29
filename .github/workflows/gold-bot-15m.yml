@@ -51,6 +51,10 @@ jobs:
           SCALP_STOP_ATR: "2.5"   # ستوب 2.5 ATR + الستوب للدخول من بعد الهدف الأول (backtest: PF 2.0)
           SCALP_TARGETS: "0.75,1,1.5,2,2.5"   # 5 أهداف بـ ATR
           SYMBOL: GC=F
+          CRABEL: "1"   # Toby Crabel: Opening Range Breakout (Stretch) بعد يوم NR7
+          CRABEL_NR7: "1"
+          CRABEL_OPEN_ET: "8"
+          CRABEL_EXIT_ET: "17"
           ICT: "1"   # نموذج ICT: رينج آسيا -> سحب سيولة -> CISD -> FVG -> هدف الرينج
           ICT_HTF: "1"   # ما نداخلش ICT ضد الاتجاه اليومي
           ICT_RANGE_ET: "20-2"
