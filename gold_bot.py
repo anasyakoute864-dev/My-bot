@@ -160,6 +160,8 @@ def build_message(r, new_signal=False):
             pass
     if r.get("crabel"):
         lines.append("Crabel")
+    if r.get("vtrade"):
+        lines.append("V")
     return "\n".join(lines)
 
 
@@ -200,6 +202,7 @@ def main():
             f.write(f"{_dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC\n{buf.getvalue()}")
     v_key = maybe_v_alert(result)
     cr_sent = None
+    vt_key = ""   # "" = ما كاينش V صالحة دابا (كيتصفر باش V الجاية تتبعت)
     last = load_last()
     if result:
         if crs:
@@ -211,6 +214,13 @@ def main():
                     send(build_message(to_spot(ga.crabel_result(result, c_)), new_signal=True))
                     sent.append(key)
             cr_sent = sent[-10:]
+        vt = result.get("vtrade_setup")
+        if vt:
+            vsent = load_state().get("vt", "")
+            vkey = f"{vt['dir']}:{round(vt['extreme'])}"
+            if vkey != vsent:
+                send(build_message(to_spot(ga.vtrade_result(result, vt)), new_signal=True))
+            vt_key = vkey
         if signal and signal != last:
             send(build_message(to_spot(result), new_signal=True))
         elif ALWAYS_SEND and not crs:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
@@ -219,7 +229,7 @@ def main():
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
         json.dump({"signal": signal, "v": v_key if v_key is not None else load_state().get("v"),
-                   "cr": cr_sent if cr_sent is not None else load_state().get("cr")}, f)
+                   "cr": cr_sent if cr_sent is not None else load_state().get("cr"), "vt": vt_key}, f)
 
 
 if __name__ == "__main__":
