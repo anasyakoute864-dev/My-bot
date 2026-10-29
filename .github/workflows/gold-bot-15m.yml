@@ -46,7 +46,7 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           ENTRY_TF: "15m"
           MIN_SCORE: "3"
-          TRADE_HOURS_ET: "off"   # off = 24/24 | "3-12" = غير لندن+نيويورك (أحسن فالـ backtest)
+          TRADE_HOURS_ET: "6-18"   # الاستراتيجية ديالنا كتخدم غير من 6:00 حتى 18:00 (نيويورك). Crabel عندو ساعاتو
           SIGNAL_STYLE: scalp
           SCALP_STOP_ATR: "2.5"   # ستوب 2.5 ATR + الستوب للدخول من بعد الهدف الأول (backtest: PF 2.0)
           SCALP_TARGETS: "0.75,1,1.5,2,2.5"   # 5 أهداف بـ ATR
@@ -61,7 +61,7 @@ jobs:
           ICT_ENTRY_ET: "2-11"
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
-          STRONG_HOURS_ET: "3-12"   # الإشارات خارج هاد الساعات كتجي بتحذير
+          STRONG_HOURS_ET: "6-18"   # الإشارات خارج هاد الساعات كتجي بتحذير
           VTRADE: "1"   # حركة V كصفقة: شراء/بيع + دخول + ستوب + 5 أهداف (تجريبي)
           V_MIN_RR: "0"
           V_ALERT: "0"   # تنبيه حركة V (معلومة فقط)
