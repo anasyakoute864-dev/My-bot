@@ -38,6 +38,7 @@ CRABEL_ONLY = os.getenv("CRABEL_ONLY", "0") == "1"
 CRABEL_SESSIONS = os.getenv("CRABEL_SESSIONS", "3-11,8-17")   # جلسات: ساعة الفتحة-ساعة الخروج (نيويورك). لندن 3-11 | نيويورك 8-17
 CRABEL_N = int(os.getenv("CRABEL_N", "10"))                    # عدد الجلسات السابقة لحساب الـ Stretch
 CRABEL_X = float(os.getenv("CRABEL_X", "1.0"))                 # 1 = Stretch كيف هو
+CRABEL_TP = float(os.getenv("CRABEL_TP", "0"))                  # TP بمضاعفات Stretch (0 = بلا TP، خروج آخر الجلسة)
 ICT_HTF = os.getenv("ICT_HTF", "0") == "1"          # 1 = ما نداخلش ضد الاتجاه اليومي
 ICT_FRACS = [0.35, 0.5, 0.65, 0.8, 1.0]             # الأهداف = نسب من المسافة للطرف الآخر ديال الرينج
 SCALP_STOP_ATR = float(os.getenv("SCALP_STOP_ATR", "5.0"))   # الستوب = X ATR
@@ -386,6 +387,7 @@ def crabel_setup(df):
             continue                          # الستوب تضرب
         return {"dir": d, "session": sess.strip(), "date": str(today), "open": op, "stretch": stretch,
                 "entry": float(entry), "sl": float(sl), "risk": float(abs(entry - sl)), "exit": h1,
+                "tp": float(entry + d * CRABEL_TP * stretch) if CRABEL_TP > 0 else None,
                 "bars_ago": int(n - 1 - k)}
     return None
 
@@ -552,8 +554,8 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         if cr:
             side, ent = cr["dir"], cr["entry"]
             out(f"✅ [Crabel] {'BUY' if side == 1 else 'SELL'} @ {ent:.2f}  Stop {cr['sl']:.2f}  (جلسة {cr['session']}, Open {cr['open']:.2f}, Stretch {cr['stretch']:.2f})")
-            res.update(decision="trade", side=side, entry=ent, sl=cr["sl"], tp1=ent + side * cr["risk"],
-                       tp2=ent + side * 2 * cr["risk"], rr=1.0, risk=cr["risk"], entry2=ent, targets=None, crabel=cr)
+            res.update(decision="trade", side=side, entry=ent, sl=cr["sl"], tp1=cr["tp"] if cr["tp"] else ent + side * cr["risk"],
+                       tp2=cr["tp"] if cr["tp"] else ent + side * 2 * cr["risk"], rr=1.0, risk=cr["risk"], entry2=ent, targets=None, crabel=cr)
             return res
         if CRABEL_ONLY:
             out("⏸  Crabel: ما كاينش اختراق Stretch.")

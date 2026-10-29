@@ -76,12 +76,14 @@ def _et(ts):
     return ts.tz_convert("America/New_York")
 
 
-def simulate_crabel(side, entry, sl, h, l, c):
-    """Crabel: الستوب = الطرف الآخر، والخروج فآخر الجلسة بسعر الإغلاق. كيرجع (R، شموع، None)"""
+def simulate_crabel(side, entry, sl, h, l, c, tp=None):
+    """Crabel: الستوب = الطرف الآخر، TP (إلا كان) ولا الخروج فآخر الجلسة بسعر الإغلاق. كيرجع (R، شموع، None)"""
     risk = abs(entry - sl)
     for k in range(len(h)):
-        if (side == 1 and l[k] <= sl) or (side == -1 and h[k] >= sl):
+        if (side == 1 and l[k] <= sl) or (side == -1 and h[k] >= sl):   # الستوب أولا (تحفظ)
             return -1.0, k + 1, None
+        if tp is not None and ((side == 1 and h[k] >= tp) or (side == -1 and l[k] <= tp)):
+            return side * (tp - entry) / risk, k + 1, None
     if len(c) == 0:
         return 0.0, 1, None
     return side * (c[-1] - entry) / risk, len(c), None
@@ -121,7 +123,8 @@ def run(df, dd, step=1, window=WINDOW):
             if keep == 0:
                 continue
             r, held, hit1 = simulate_crabel(res["side"], res["entry"], res["sl"],
-                                            fut["high"].values, fut["low"].values, fut["close"].values)
+                                            fut["high"].values, fut["low"].values, fut["close"].values,
+                                            tp=res["crabel"].get("tp"))
         elif res.get("targets"):
             r, held, hit1 = simulate_scalp(res["side"], res["entry"], res["sl"], res["targets"],
                                            fut["high"].values, fut["low"].values, fut["close"].values)
@@ -153,7 +156,7 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} BE={int(BE_AFTER_TP1)} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} sessions={ga.CRABEL_SESSIONS} X={ga.CRABEL_X} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} BE={int(BE_AFTER_TP1)} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} sessions={ga.CRABEL_SESSIONS} X={ga.CRABEL_X} TP={ga.CRABEL_TP} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",

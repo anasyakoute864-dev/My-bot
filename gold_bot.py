@@ -138,6 +138,8 @@ def build_message(r, new_signal=False):
         head += f" - {r['entry2']:.0f}"
     lines = ([LABEL] if LABEL else []) + [head]
     if r.get("crabel"):
+        if r["crabel"].get("tp"):
+            lines.append(f"TP: 🎯 {r['crabel']['tp']:.0f}")
         lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
         lines.append(f"الخروج: ⏰ آخر الجلسة ({r['crabel']['exit']}:00 نيويورك)")
     else:
@@ -171,7 +173,7 @@ def main():
                 "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
         send("🧪 رسالة تجريبية (وهمية) - إشارة ديالنا (السكور)\n\n" + build_message(fake))
         fake_cr = {"decision": "trade", "side": 1, "entry": 4140.0, "entry2": 4140.0, "sl": 4128.0, "risk": 12.0,
-                   "targets": None, "crabel": {"exit": 17},
+                   "targets": None, "crabel": {"exit": 17, "tp": 4152.0},
                    "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
         send("🧪 رسالة تجريبية (وهمية) - إشارة Crabel\n\n" + build_message(fake_cr))
         if V_ALERT:
