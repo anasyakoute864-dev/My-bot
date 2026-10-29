@@ -57,7 +57,7 @@ def to_spot(res):
     spot = spot_price()
     if spot is None:
         return res
-    off = spot - res["entry"]
+    off = spot - res.get("price", res["entry"])   # الفرق بين الفوري وسعر الفيوتشرز الحالي
     if abs(off) > 60:  # فرق غير منطقي (بيانات غالطة): ما نبدلو والو
         print(f"spot offset {off:.1f} too large, ignored")
         return res
@@ -68,6 +68,8 @@ def to_spot(res):
             res[k] = res[k] + off
     if res.get("targets"):
         res["targets"] = [t + off for t in res["targets"]]
+    if res.get("crabel") and res["crabel"].get("tp"):
+        res["crabel"] = dict(res["crabel"], tp=res["crabel"]["tp"] + off)
     return res
 
 
