@@ -52,7 +52,7 @@ jobs:
           SCALP_TARGETS: "0.75,1,1.5,2,2.5"   # 5 أهداف بـ ATR
           SYMBOL: GC=F
           CRABEL: "1"   # Toby Crabel: Opening Range Breakout (Stretch)
-          CRABEL_ONLY: "1"   # غير استراتيجية Crabel، بلا أي شي آخر
+          CRABEL_ONLY: "0"   # 0 = Crabel كل نهار + استراتيجية البوت الأول (السكور) كيخدمو مع بعض
           CRABEL_NR7: "0"
           CRABEL_OPEN_ET: "8"
           CRABEL_EXIT_ET: "17"
@@ -63,7 +63,7 @@ jobs:
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
           STRONG_HOURS_ET: "3-12"   # الإشارات خارج هاد الساعات كتجي بتحذير
-          V_ALERT: "0"   # تنبيه حركة V (معلومة فقط)
+          V_ALERT: "1"   # تنبيه حركة V (معلومة فقط)
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: python gold_bot.py
