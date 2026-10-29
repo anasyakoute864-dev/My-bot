@@ -134,10 +134,15 @@ def build_message(r, new_signal=False):
         return f"⏸ ما كاينش صفقة دابا: {why}{extra}"
     buy = r["side"] == 1
     lines = ([LABEL] if LABEL else []) + [f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {r['entry']:.0f} - {r['entry2']:.0f}"]
-    for name, t in zip(ORD, targets(r)):
-        lines.append(f"الهدف {name}: {t:.0f}")
-    lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
-    lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
+    if r.get("crabel"):
+        lines.append(f"الخروج: ⏰ آخر الجلسة ({os.getenv('CRABEL_EXIT_ET', '17')}:00 نيويورك) ولا الستوب")
+        lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
+        lines.append(f"🧩 Crabel ORB: Open {r['crabel']['open']:.0f} ± Stretch {r['crabel']['stretch']:.1f}")
+    else:
+        for name, t in zip(ORD, targets(r)):
+            lines.append(f"الهدف {name}: {t:.0f}")
+        lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
+        lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
     if r.get("ict"):
         lines.append("🧩 ICT: تجميع ← تلاعب ← CISD" + (" ← FVG" if r["ict"].get("fvg") else ""))
     if r.get("amd") and r["amd"]["dir"] == r["side"]:

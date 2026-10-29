@@ -24,6 +24,15 @@ on:
       be:
         description: "الستوب للدخول من بعد الهدف الأول (1/0)"
         default: "0"
+      crabel:
+        description: "Crabel ORB: 0 | 1 (مع السكور) | only"
+        default: "0"
+      crabel_nr7:
+        description: "فلتر NR7 (1/0)"
+        default: "1"
+      crabel_x:
+        description: "معامل Stretch (1 = Crabel)"
+        default: "1.0"
       ict:
         description: "نموذج ICT: 0 (طافي) | 1 (مع السكور) | only (غير ICT)"
         default: "0"
@@ -79,6 +88,10 @@ jobs:
           ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
           ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
           BE_AFTER_TP1: ${{ github.event.inputs.be || '0' }}
+          CRABEL: ${{ (github.event.inputs.crabel == '1' || github.event.inputs.crabel == 'only') && '1' || '0' }}
+          CRABEL_ONLY: ${{ github.event.inputs.crabel == 'only' && '1' || '0' }}
+          CRABEL_NR7: ${{ github.event.inputs.crabel_nr7 || '1' }}
+          CRABEL_X: ${{ github.event.inputs.crabel_x || '1.0' }}
           ICT_HTF: ${{ github.event.inputs.ict_htf || '0' }}
           ICT_RANGE_ET: ${{ github.event.inputs.ict_range || '20-2' }}
           ICT_ENTRY_ET: ${{ github.event.inputs.ict_entry || '2-11' }}
@@ -91,7 +104,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_be${BE_AFTER_TP1}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_amd${AMD}_be${BE_AFTER_TP1}_cr${CRABEL}${CRABEL_ONLY}n${CRABEL_NR7}x${CRABEL_X}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()

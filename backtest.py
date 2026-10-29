@@ -70,6 +70,23 @@ def simulate_scalp(side, entry, sl, targets, h, l, c, be=None):
     return real + (n - done) * part * side * (c[-1] - entry) / risk, len(c), hit1
 
 
+def _et(ts):
+    ts = pd.Timestamp(ts)
+    ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
+    return ts.tz_convert("America/New_York")
+
+
+def simulate_crabel(side, entry, sl, h, l, c):
+    """Crabel: الستوب = الطرف الآخر، والخروج فآخر الجلسة بسعر الإغلاق. كيرجع (R، شموع، None)"""
+    risk = abs(entry - sl)
+    for k in range(len(h)):
+        if (side == 1 and l[k] <= sl) or (side == -1 and h[k] >= sl):
+            return -1.0, k + 1, None
+    if len(c) == 0:
+        return 0.0, 1, None
+    return side * (c[-1] - entry) / risk, len(c), None
+
+
 def run(df, dd, step=1, window=WINDOW):
     dd = dd.copy()
     dd["day"] = dd["time"].map(naive_utc).dt.normalize()
@@ -90,7 +107,20 @@ def run(df, dd, step=1, window=WINDOW):
         if not is_new or i <= busy_until:
             continue
         fut = df.iloc[i + 1: i + 1 + MAX_HOLD]
-        if res.get("targets"):
+        if res.get("crabel"):
+            e0 = _et(df["time"].iloc[i]).date()
+            keep = 0
+            for j in range(len(fut)):
+                ej = _et(fut["time"].iloc[j])
+                if ej.date() != e0 or ej.hour >= ga.CRABEL_EXIT_ET:
+                    break
+                keep += 1
+            fut = fut.iloc[:keep]
+            if keep == 0:
+                continue
+            r, held, hit1 = simulate_crabel(res["side"], res["entry"], res["sl"],
+                                            fut["high"].values, fut["low"].values, fut["close"].values)
+        elif res.get("targets"):
             r, held, hit1 = simulate_scalp(res["side"], res["entry"], res["sl"], res["targets"],
                                            fut["high"].values, fut["low"].values, fut["close"].values)
         else:
@@ -121,7 +151,7 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} AMD={int(ga.AMD)} BE={int(BE_AFTER_TP1)} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} AMD={int(ga.AMD)} BE={int(BE_AFTER_TP1)} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} nr7={int(ga.CRABEL_NR7)} X={ga.CRABEL_X} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",
