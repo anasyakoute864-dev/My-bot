@@ -376,7 +376,7 @@ def crabel_setup(df):
         op = float(o[cur[0]])
         buy, sell = op + stretch, op - stretch
         k = next((i for i in cur if h[i] >= buy or l[i] <= sell), None)
-        if k is None or n - 1 - k > 1:
+        if k is None:
             continue
         if h[k] >= buy and l[k] <= sell:      # جوج د الأوامر فنفس الشمعة: غامض، كنتخطاو
             continue
