@@ -700,7 +700,7 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     res = _evaluate(df, dd, macro, macro_notes, verbose, now)
     if CRABEL and not CRABEL_ONLY:   # Crabel كيخدم بجنب البوت الأول، ماكيبدل والو فقراره
         res["crabel_all"] = crabel_all(df)
-    if VTRADE and not VTRADE_ONLY and not news_blocked(now):   # V كصفقة بجنب البوت الأول
+    if VTRADE and not VTRADE_ONLY and not news_blocked(now) and in_trade_hours(df):   # V كصفقة بجنب البوت الأول (نفس الساعات)
         res["vtrade_setup"] = vtrade_setup(df)
     return res
 
