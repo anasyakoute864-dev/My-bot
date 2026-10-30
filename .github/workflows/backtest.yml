@@ -12,9 +12,6 @@ on:
       min_score:
         description: "MIN_SCORE (3 / 4 / 5 ...)"
         default: "5"
-      vshape:
-        description: "كشف حركة V: 1 ولا 0"
-        default: "0"
       stop_atr:
         description: "scalp: الستوب بـ ATR (5 = الحالي)"
         default: "5.0"
@@ -24,15 +21,6 @@ on:
       be:
         description: "الستوب للدخول من بعد الهدف الأول (1/0)"
         default: "0"
-      vtrade:
-        description: "V كصفقة: 0 | only"
-        default: "0"
-      v_fracs:
-        description: "أهداف V (نسب مفصولة بفاصلة)"
-        default: "0.2,0.4,0.6,0.8,1.0"
-      v_min_rr:
-        description: "V: أقل RR"
-        default: "1.0"
       crabel:
         description: "Crabel ORB: 0 | 1 (مع السكور) | only"
         default: "0"
@@ -92,14 +80,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           ENTRY_TF: ${{ github.event.inputs.tf || '1h' }}
           MIN_SCORE: ${{ github.event.inputs.min_score || '5' }}
-          VSHAPE: ${{ github.event.inputs.vshape || '0' }}
           ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
           ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
           BE_AFTER_TP1: ${{ github.event.inputs.be || '0' }}
-          VTRADE: ${{ github.event.inputs.vtrade == 'only' && '1' || '0' }}
-          VTRADE_ONLY: ${{ github.event.inputs.vtrade == 'only' && '1' || '0' }}
-          V_FRACS: ${{ github.event.inputs.v_fracs || '0.2,0.4,0.6,0.8,1.0' }}
-          V_MIN_RR: ${{ github.event.inputs.v_min_rr || '1.0' }}
           CRABEL: ${{ (github.event.inputs.crabel == '1' || github.event.inputs.crabel == 'only') && '1' || '0' }}
           CRABEL_ONLY: ${{ github.event.inputs.crabel == 'only' && '1' || '0' }}
           CRABEL_SESSIONS: ${{ github.event.inputs.crabel_sessions || '3-11,8-17' }}
@@ -117,7 +100,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_v${VSHAPE}_be${BE_AFTER_TP1}_vt${VTRADE_ONLY}f${V_FRACS//,/-}rr${V_MIN_RR}_cr${CRABEL}${CRABEL_ONLY}x${CRABEL_X}tp${CRABEL_TP}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_be${BE_AFTER_TP1}_cr${CRABEL}${CRABEL_ONLY}x${CRABEL_X}tp${CRABEL_TP}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()

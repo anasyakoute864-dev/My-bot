@@ -6,7 +6,6 @@ import gold_analyzer as ga
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 STATE = os.getenv("STATE_FILE", "last_signal.json")
-V_ALERT = os.getenv("V_ALERT", "0") == "1"   # تنبيه حركة V (معلومة فقط، ماشي إشارة دخول)
 LABEL = os.getenv("SIGNAL_LABEL", "")   # مثلا "⚡ 15m" باش نفرقو بين البوتين
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
 TEST_SIGNAL = os.getenv("TEST_SIGNAL", "0") == "1"
@@ -81,41 +80,6 @@ def load_state():
         return {}
 
 
-def v_message(va, spot_off=0.0, bar_close=None):
-    up = va["dir"] > 0
-    lines = ([LABEL] if LABEL else []) + [
-        f"⚡ حركة V {'صاعدة ⬆️' if up else 'نازلة ⬇️'}",
-        f"{'نزول' if up else 'صعود'} {va['drop']:.0f} نقطة ثم {'رجوع' if up else 'نزول'} {va['reb']:.0f} فـ {va['bars_ago']} شموع ({ga.ENTRY_TF})",
-        f"{'القاع' if up else 'القمة'}: {va['extreme'] + spot_off:.0f}",
-        "⚠️ تنبيه فقط، ماشي إشارة دخول. الدخول بعد V كيكون متأخر غالباً.",
-    ]
-    if bar_close:
-        try:
-            t = pd.Timestamp(bar_close).tz_convert("America/New_York")
-            lines.append(f"🕒 {t:%H:%M} (نيويورك)")
-        except Exception:
-            pass
-    return "\n".join(lines)
-
-
-def maybe_v_alert(result):
-    """كيصيفط تنبيه V مرة وحدة لكل حركة (المفتاح: الاتجاه + القاع/القمة). كيرجع المفتاح الحالي"""
-    va = result.get("v_alert") if result else None
-    if not V_ALERT:
-        return None
-    if not va:
-        return ""        # ما كاينش V دابا: كنعاودو نسمحو بتنبيه جديد من بعد
-    key = f"{va['dir']}:{round(va['extreme'])}"
-    if load_state().get("v") == key:
-        return key
-    off = 0.0
-    spot = spot_price() if SPOT_ADJUST else None
-    if spot is not None and abs(spot - result["price"]) <= 60:
-        off = spot - result["price"]
-    send(v_message(va, off, result.get("bar_close")))
-    return key
-
-
 ORD = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس"]
 
 
@@ -162,8 +126,6 @@ def build_message(r, new_signal=False):
             pass
     if r.get("crabel"):
         lines.append("Crabel")
-    if r.get("vtrade"):
-        lines.append("V")
     return "\n".join(lines)
 
 
@@ -180,9 +142,6 @@ def main():
                    "targets": None, "crabel": {"exit": 17, "tp": 4152.0},
                    "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
         send("🧪 رسالة تجريبية (وهمية) - إشارة Crabel\n\n" + build_message(fake_cr))
-        if V_ALERT:
-            send("🧪 تنبيه V (وهمي)\n\n" + v_message({"dir": 1, "drop": 30.0, "reb": 20.0, "bars_ago": 6, "extreme": 3990.0},
-                                                      0.0, pd.Timestamp.now(tz="UTC").floor("15min").isoformat()))
         return
     buf = io.StringIO()
     try:
@@ -202,9 +161,7 @@ def main():
         import datetime as _dt
         with open("live_status.txt", "w", encoding="utf-8") as f:
             f.write(f"{_dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC\n{buf.getvalue()}")
-    v_key = maybe_v_alert(result)
     cr_sent = None
-    vt_key = ""   # "" = ما كاينش V صالحة دابا (كيتصفر باش V الجاية تتبعت)
     last = load_last()
     if result:
         if crs:
@@ -216,13 +173,6 @@ def main():
                     send(build_message(to_spot(ga.crabel_result(result, c_)), new_signal=True))
                     sent.append(key)
             cr_sent = sent[-10:]
-        vt = result.get("vtrade_setup")
-        if vt:
-            vsent = load_state().get("vt", "")
-            vkey = f"{vt['dir']}:{round(vt['extreme'])}"
-            if vkey != vsent:
-                send(build_message(to_spot(ga.vtrade_result(result, vt)), new_signal=True))
-            vt_key = vkey
         if signal and signal != last:
             send(build_message(to_spot(result), new_signal=True))
         elif ALWAYS_SEND and not crs:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
@@ -230,8 +180,7 @@ def main():
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"signal": signal, "v": v_key if v_key is not None else load_state().get("v"),
-                   "cr": cr_sent if cr_sent is not None else load_state().get("cr"), "vt": vt_key}, f)
+        json.dump({"signal": signal, "cr": cr_sent if cr_sent is not None else load_state().get("cr")}, f)
 
 
 if __name__ == "__main__":

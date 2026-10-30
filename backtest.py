@@ -156,7 +156,7 @@ def summarize(trades, start, end):
     by_side = {s: pd.Series([t["R"] for t in trades if t["side"] == s]) for s in ("BUY", "SELL")}
     side_line = " | ".join(f"{s}: {len(v)} ({v.sum():+.1f}R)" for s, v in by_side.items() if len(v))
     return "\n".join([
-        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} V={int(ga.VSHAPE)} BE={int(BE_AFTER_TP1)} VTRADE={int(ga.VTRADE)}{'only' if ga.VTRADE_ONLY else ''} fr={ga.V_FRACS} minrr={ga.V_MIN_RR} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} sessions={ga.CRABEL_SESSIONS} X={ga.CRABEL_X} TP={ga.CRABEL_TP} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
+        f"📈 Backtest الذهب ({ga.ENTRY_TF}) MIN_SCORE={ga.MIN_SCORE} {ga.STYLE} BE={int(BE_AFTER_TP1)} CRABEL={int(ga.CRABEL)}{'only' if ga.CRABEL_ONLY else ''} sessions={ga.CRABEL_SESSIONS} X={ga.CRABEL_X} TP={ga.CRABEL_TP} ICT={int(ga.ICT)}{'only' if ga.ICT_ONLY else ''} range={ga.ICT_RANGE_ET} entry={ga.ICT_ENTRY_ET} stop={ga.SCALP_STOP_ATR}ATR targets={ga.SCALP_TARGETS}",
         f"من {start} إلى {end}",
         "",
         f"عدد الصفقات: {len(r)}  (~{len(r) / days:.1f} فاليوم)",

@@ -27,12 +27,6 @@ FRED_KEY = os.getenv("FRED_API_KEY", "")
 STYLE = os.getenv("SIGNAL_STYLE", "swing")
 # ساعات التداول بتوقيت نيويورك (لندن + أمريكا). "off" = بلا فلتر. مثال: "3-12"
 TRADE_HOURS_ET = os.getenv("TRADE_HOURS_ET", "3-12")
-VSHAPE = os.getenv("VSHAPE", "0") == "1"       # كشف حركة V (نزول/صعود سريع ثم انعكاس)
-V_LOOK, V_DROP_ATR, V_REB_ATR, V_MAX_BARS = 12, 3.0, 2.0, 8
-VTRADE = os.getenv("VTRADE", "0") == "1"                # حركة V كصفقة (دخول + ستوب + أهداف)
-VTRADE_ONLY = os.getenv("VTRADE_ONLY", "0") == "1"
-V_FRACS = [float(x) for x in os.getenv("V_FRACS", "0.2,0.4,0.6,0.8,1.0").split(",")]   # الأهداف = نسب من المسافة لبداية الحركة
-V_MIN_RR = float(os.getenv("V_MIN_RR", "1.0"))          # أقل نسبة (المسافة للهدف الأخير / المخاطرة)
 ICT = os.getenv("ICT", "0") == "1"                  # نموذج ICT: رينج -> سحب سيولة -> CISD -> FVG -> هدف الرينج
 ICT_ONLY = os.getenv("ICT_ONLY", "0") == "1"        # 1 = غير نموذج ICT (بلا السكور العادي)
 ICT_RANGE_ET = os.getenv("ICT_RANGE_ET", "20-2")    # ساعات الرينج (نيويورك). 20-2 = آسيا | 2-7 = لندن
@@ -210,38 +204,6 @@ def find_sweep(df, pv, window=12):
     return None
 
 
-# ---------------------------------------------------------------- حركة V
-def v_shape(df):
-    """
-    V صاعد (+1): نزول >= 3 ATR من قمة قريبة لقاع، ومن بعد رجوع >= 2 ATR (وعلى الأقل نص النزول)
-                 فـ <= 8 شموع. V نازل (-1): العكس.
-    كيرجع None إلا ما كانتش حركة V.
-    """
-    n = len(df)
-    if n < V_LOOK + 3:
-        return None
-    h, l, c = df["high"].values, df["low"].values, df["close"].values
-    a = float(df["atr"].iloc[-1])
-    w0 = n - V_MAX_BARS - 1
-    lows = l[w0:n]
-    k = w0 + int(np.argmin(lows))
-    bars = n - 1 - k
-    if 1 <= bars <= V_MAX_BARS:
-        drop = h[max(0, k - V_LOOK):k + 1].max() - l[k]
-        reb = c[-1] - l[k]
-        if drop >= V_DROP_ATR * a and reb >= V_REB_ATR * a and reb >= 0.5 * drop:
-            return {"dir": 1, "extreme": float(l[k]), "drop": float(drop), "reb": float(reb), "bars_ago": bars}
-    highs = h[w0:n]
-    k = w0 + int(np.argmax(highs))
-    bars = n - 1 - k
-    if 1 <= bars <= V_MAX_BARS:
-        rise = h[k] - l[max(0, k - V_LOOK):k + 1].min()
-        fall = h[k] - c[-1]
-        if rise >= V_DROP_ATR * a and fall >= V_REB_ATR * a and fall >= 0.5 * rise:
-            return {"dir": -1, "extreme": float(h[k]), "drop": float(rise), "reb": float(fall), "bars_ago": bars}
-    return None
-
-
 # ---------------------------------------------------------------- ICT: رينج -> تلاعب -> CISD -> FVG -> توزيع
 def _hours(rng):
     a, b = (int(x) for x in rng.split("-"))
@@ -412,34 +374,6 @@ def crabel_result(res, cr):
     return r
 
 
-# ---------------------------------------------------------------- حركة V كصفقة
-def vtrade_setup(df):
-    """V صاعد: شراء بعد الرجوع، الستوب تحت القاع، الأهداف نحو بداية النزول. V نازل: العكس."""
-    va = v_shape(df)
-    if not va:
-        return None
-    d = va["dir"]
-    a = float(df["atr"].iloc[-1])
-    price = float(df["close"].iloc[-1])
-    ext = va["extreme"]
-    start = ext + d * va["drop"]
-    risk = abs(price - ext) + 0.3 * a
-    dist = d * (start - price)
-    if dist <= 0 or dist < V_MIN_RR * risk:
-        return None
-    return {"dir": d, "entry": price, "sl": float(ext - d * 0.3 * a), "risk": float(risk), "extreme": float(ext),
-            "start": float(start), "targets": [float(price + d * f * dist) for f in V_FRACS]}
-
-
-def vtrade_result(res, vt):
-    r = dict(res)
-    side, ent = vt["dir"], vt["entry"]
-    r.update(decision="trade", side=side, entry=ent, sl=vt["sl"], tp1=vt["targets"][0], tp2=vt["targets"][-1],
-             rr=float(abs(vt["targets"][0] - ent) / vt["risk"]), risk=vt["risk"], entry2=float(ent - side * 0.3 * float(res["atr"])),
-             targets=vt["targets"], vtrade=vt)
-    return r
-
-
 # ---------------------------------------------------------------- Breakout
 def breakout(df, look=20):
     c = df["close"].iloc[-1]
@@ -544,7 +478,6 @@ def _evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     fvgs = find_fvg(df)
     sweep = find_sweep(df, pv)
     bo, bo_lvl = breakout(df)
-    vs = v_shape(df) if VSHAPE else None
     fib = fib_zone(df, pv)
 
     score, why, items = 0.0, [], []
@@ -563,8 +496,6 @@ def _evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         good = sweep["verdict"].startswith("حقيقي")
         add(2 * sweep["dir"] if good else 0,
             f"سحب سيولة {'تحت قاع' if sweep['dir']==1 else 'فوق قمة'} {sweep['level']:.1f} قبل {sweep['bars_ago']} شمعة -> {sweep['verdict']}")
-    if vs:
-        add(2 * vs["dir"], f"حركة V {'صاعدة' if vs['dir'] > 0 else 'نازلة'}: {vs['drop']:.1f} نقطة ثم رجوع {vs['reb']:.1f} فـ {vs['bars_ago']} شموع (القاع/القمة {vs['extreme']:.1f})")
     for lo, hi, d in fvgs[-3:]:
         if lo - 0.3 * a <= price <= hi + 0.3 * a:
             add(1 * d, f"السعر داخل/قريب FVG {'صاعد' if d>0 else 'نازل'} [{lo:.1f}-{hi:.1f}]")
@@ -596,7 +527,7 @@ def _evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
         bar_close = t_close.isoformat()
     except Exception:
         bar_close = None
-    res = {"v_alert": v_shape(df), "bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
+    res = {"bar_close": bar_close, "price": float(price), "atr": float(a), "score": float(score), "min_score": MIN_SCORE,
            "items": items, "macro_notes": macro_notes, "decision": "wait", "side": None}
     if CRABEL and CRABEL_ONLY:   # Crabel بوحدو: بلا فلتر أخبار ولا ساعات ولا سكور
         crs = crabel_all(df)
@@ -617,13 +548,6 @@ def _evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     if not in_trade_hours(df):
         out(f"⏸  خارج ساعات التداول ({TRADE_HOURS_ET} نيويورك) -> ما كاينش دخول دابا.")
         res.update(decision="off_hours")
-        return res
-    if VTRADE and VTRADE_ONLY:
-        vt = vtrade_setup(df)
-        if vt:
-            out(f"✅ [V] {'BUY' if vt['dir'] == 1 else 'SELL'} @ {vt['entry']:.2f}  Stop {vt['sl']:.2f}  Targets {[round(x, 2) for x in vt['targets']]}")
-            return vtrade_result(res, vt)
-        out("⏸  V: ما كاينش حركة V صالحة.")
         return res
     if ICT:
         ict = ict_setup(df)
@@ -700,8 +624,6 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     res = _evaluate(df, dd, macro, macro_notes, verbose, now)
     if CRABEL and not CRABEL_ONLY:   # Crabel كيخدم بجنب البوت الأول، ماكيبدل والو فقراره
         res["crabel_all"] = crabel_all(df)
-    if VTRADE and not VTRADE_ONLY and not news_blocked(now) and in_trade_hours(df):   # V كصفقة بجنب البوت الأول (نفس الساعات)
-        res["vtrade_setup"] = vtrade_setup(df)
     return res
 
 
