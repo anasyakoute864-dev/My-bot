@@ -49,14 +49,14 @@ def spot_price():
         return None
 
 
-def to_spot(res):
+def to_spot(res, ref=None):
     """كيحول الدخول والستوب والأهداف من سعر الفيوتشرز (GC=F) لسعر الفوري (XAUUSD) بنفس الفرق"""
     if not SPOT_ADJUST or res.get("decision") != "trade":
         return res
     spot = spot_price()
     if spot is None:
         return res
-    off = spot - res.get("price", res["entry"])   # الفرق بين الفوري وسعر الفيوتشرز الحالي
+    off = spot - (ref if ref is not None else res.get("price", res["entry"]))   # الفرق بين الفوري وسعر الفيوتشرز الحالي
     if abs(off) > 60:  # فرق غير منطقي (بيانات غالطة): ما نبدلو والو
         print(f"spot offset {off:.1f} too large, ignored")
         return res
@@ -146,41 +146,54 @@ def main():
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            result = ga.analyze()
+            results = ga.analyze_recent()
     except Exception:
         send("⚠️ خطأ فالتحليل:\n" + traceback.format_exc()[-800:])
         raise
     print(buf.getvalue())
+    result = results[-1] if results else None
+    ref = result["price"] if result else None
 
-    # الإشارة = الاتجاه فقط (BUY/SELL). السعر كيتبدل كل مرة، ما خاصوش يدخل فالمقارنة
-    signal = None
-    if result and result.get("decision") == "trade" and not result.get("crabel"):
-        signal = "BUY" if result["side"] == 1 else "SELL"
-    crs = result.get("crabel_all") if result else []
     if result:  # حالة آخر تشغيل (كنقراوها للتشخيص)
         import datetime as _dt
         with open("live_status.txt", "w", encoding="utf-8") as f:
             f.write(f"{_dt.datetime.utcnow():%Y-%m-%d %H:%M} UTC\n{buf.getvalue()}")
+
+    # إشارات ديالنا (السكور) اللي وقعات فآخر الشموع: إشارة جديدة = اتجاه تبدل مقارنة بالشمعة اللي قبلها
+    state = load_state()
+    sk = list(state.get("sk") or [])
+    new_sigs, prev = [], None
+    for idx, r in enumerate(results):
+        sg = None
+        if r.get("decision") == "trade" and not r.get("crabel"):
+            sg = "BUY" if r["side"] == 1 else "SELL"
+        if idx > 0 and sg and sg != prev:
+            key = f"{r.get('bar_close')}|{sg}"
+            if key not in sk:
+                new_sigs.append((key, r))
+        prev = sg
+
+    crs = result.get("crabel_all") if result else []
     cr_sent = None
-    last = load_last()
     if result:
         if crs:
-            sent = load_state().get("cr") or []
+            sent = state.get("cr") or []
             sent = [sent] if isinstance(sent, str) else list(sent)
             for c_ in sorted(crs, key=lambda x: -x["bars_ago"]):   # الأقدم أولا
                 key = f"{c_['session']}|{c_['date']}|{c_['dir']}"
                 if key not in sent:
-                    send(build_message(to_spot(ga.crabel_result(result, c_)), new_signal=True))
+                    send(build_message(to_spot(ga.crabel_result(result, c_), ref), new_signal=True))
                     sent.append(key)
             cr_sent = sent[-10:]
-        if signal and signal != last:
-            send(build_message(to_spot(result), new_signal=True))
-        elif ALWAYS_SEND and not crs:  # التشغيل اليدوي: صفقة إيلا كانت، وإلا سطر قصير للتأكيد
-            send(build_message(to_spot(result)))
+        for key, r in new_sigs:
+            send(build_message(to_spot(r, ref), new_signal=True))
+            sk.append(key)
+        if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
+            send(build_message(to_spot(result, ref)))
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"signal": signal, "cr": cr_sent if cr_sent is not None else load_state().get("cr")}, f)
+        json.dump({"sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr")}, f)
 
 
 if __name__ == "__main__":

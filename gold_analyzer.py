@@ -627,11 +627,35 @@ def evaluate(df, dd, macro=0.0, macro_notes=None, verbose=True, now=None):
     return res
 
 
+CATCHUP_BARS = int(os.getenv("CATCHUP_BARS", "8"))   # كم شمعة للخلف نراجعو (باش ما تفوتش إشارة إلا تأخر التشغيل)
+
+
 def analyze():
     df = get_data(ENTRY_TF, "59d" if ENTRY_TF == "15m" else "60d")
     dd = get_data(HTF, "1y")
     macro, macro_notes = macro_bias()
     return evaluate(df, dd, macro, macro_notes)
+
+
+def analyze_recent(k=None):
+    """كيحلل آخر k+1 شمعة (من الأقدم للأحدث). كل عنصر = قرار البوت عند سدان داك الشمعة."""
+    k = CATCHUP_BARS if k is None else k
+    df = get_data(ENTRY_TF, "59d" if ENTRY_TF == "15m" else "60d")
+    dd = get_data(HTF, "1y")
+    macro, macro_notes = macro_bias()
+    n = len(df)
+    out_ = []
+    for j in range(k, -1, -1):
+        if n - j < 100:
+            continue
+        sub = df.iloc[:n - j].reset_index(drop=True)
+        now = None
+        if j:
+            t = pd.Timestamp(sub["time"].iloc[-1])
+            t = t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+            now = t + TF_DELTA[ENTRY_TF]
+        out_.append(evaluate(sub, dd, macro, macro_notes, verbose=(j == 0), now=now))
+    return out_
 
 
 if __name__ == "__main__":
