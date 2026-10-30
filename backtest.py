@@ -194,6 +194,10 @@ def main():
     text = summarize(trades, start, end)
     print(text)
     pd.DataFrame(trades).to_csv("trades.csv", index=False)
+    print("آخر الصفقات (توقيت نيويورك):")
+    for t in trades[-14:]:
+        e = _et(t["time"])
+        print(f"{e:%m-%d %H:%M} {t['side']} entry={t['entry']:.1f} sl={t['sl']:.1f} R={t['R']:+.2f}")
     send(text)
 
 
