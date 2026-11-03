@@ -61,6 +61,7 @@ jobs:
           ICT_ENTRY_ET: "2-11"
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
+          SCALP_OLD: "1"   # إشارة سكالب إضافية (علامة "Scalp"): ستوب 5×ATR وهدف واحد 0.25×ATR. 0 = مطفي
           MAX_LOSSES_DAY: "2"   # بعد خسارتين ف نفس النهار (نيويورك) ما كتصيفطش إشارات جديدة ديال السكور (Crabel ما كيتأثرش). 0 = مطفي
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}

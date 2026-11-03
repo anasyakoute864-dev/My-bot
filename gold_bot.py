@@ -9,6 +9,9 @@ STATE = os.getenv("STATE_FILE", "last_signal.json")
 LABEL = os.getenv("SIGNAL_LABEL", "")   # مثلا "⚡ 15m" باش نفرقو بين البوتين
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
 TEST_SIGNAL = os.getenv("TEST_SIGNAL", "0") == "1"
+SCALP_OLD = os.getenv("SCALP_OLD", "0") == "1"            # إشارة سكالب إضافية (النسخة القديمة): ستوب واسع + هدف واحد صغير
+SCALP_OLD_STOP_ATR = float(os.getenv("SCALP_OLD_STOP_ATR", "5.0"))
+SCALP_OLD_TP_ATR = float(os.getenv("SCALP_OLD_TP_ATR", "0.25"))
 MAX_LOSSES_DAY = int(os.getenv("MAX_LOSSES_DAY", "0"))   # 0 = مطفي. بعد N خسارات ف نفس النهار (توقيت نيويورك) ما كنصيفطوش إشارة جديدة (ديالنا فقط، ماشي Crabel)
 
 
@@ -71,6 +74,14 @@ def to_spot(res, ref=None):
     if res.get("crabel") and res["crabel"].get("tp"):
         res["crabel"] = dict(res["crabel"], tp=res["crabel"]["tp"] + off)
     return res
+
+
+def scalp_old(r):
+    """نفس الإشارة (اتجاه/دخول/وقت) ولكن بالنسخة القديمة: ستوب X×ATR وهدف واحد Y×ATR"""
+    a, side, e = r["atr"], r["side"], r["entry"]
+    tp = e + side * SCALP_OLD_TP_ATR * a
+    return dict(r, entry2=r["entry2"], sl=e - side * SCALP_OLD_STOP_ATR * a, tp1=tp, tp2=tp,
+                risk=SCALP_OLD_STOP_ATR * a, targets=None, scalp=True)
 
 
 def _et_date(ts):
@@ -140,6 +151,9 @@ def build_message(r, new_signal=False):
             lines.append(f"TP: 🎯 {r['crabel']['tp']:.0f}")
         lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
         lines.append(f"الخروج: ⏰ آخر الجلسة ({r['crabel']['exit']}:00 نيويورك)")
+    elif r.get("scalp"):
+        lines.append(f"TP: 🎯 {r['tp1']:.0f}")
+        lines.append(f"وقف الخسارة: 🔴 {r['sl']:.0f}")
     else:
         for name, t in zip(ORD, targets(r)):
             lines.append(f"الهدف {name}: {t:.0f}")
@@ -158,6 +172,8 @@ def build_message(r, new_signal=False):
             pass
     if r.get("crabel"):
         lines.append("Crabel")
+    if r.get("scalp"):
+        lines.append("Scalp")
     return "\n".join(lines)
 
 
@@ -174,6 +190,8 @@ def main():
                    "targets": None, "crabel": {"exit": 17, "tp": 4152.0},
                    "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
         send("🧪 رسالة تجريبية (وهمية) - إشارة Crabel\n\n" + build_message(fake_cr))
+        fake_sc = scalp_old(dict(fake, atr=8.0))
+        send("🧪 رسالة تجريبية (وهمية) - إشارة Scalp\n\n" + build_message(fake_sc))
         return
     buf = io.StringIO()
     try:
@@ -233,9 +251,13 @@ def main():
                     n_loss = 0
                 if n_loss >= MAX_LOSSES_DAY:
                     print(f"skipped {key}: {n_loss} losses today (limit {MAX_LOSSES_DAY})")
+                    if SCALP_OLD:
+                        send(build_message(to_spot(scalp_old(r), ref), new_signal=True))
                     sk.append(key)
                     continue
             send(build_message(to_spot(r, ref), new_signal=True))
+            if SCALP_OLD:
+                send(build_message(to_spot(scalp_old(r), ref), new_signal=True))
             sk.append(key)
             if MAX_LOSSES_DAY:
                 tg = r.get("targets") or [r["tp1"]]
