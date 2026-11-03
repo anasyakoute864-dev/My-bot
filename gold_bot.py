@@ -9,6 +9,7 @@ STATE = os.getenv("STATE_FILE", "last_signal.json")
 LABEL = os.getenv("SIGNAL_LABEL", "")   # مثلا "⚡ 15m" باش نفرقو بين البوتين
 ALWAYS_SEND = os.getenv("ALWAYS_SEND", "0") == "1"
 TEST_SIGNAL = os.getenv("TEST_SIGNAL", "0") == "1"
+MAX_LOSSES_DAY = int(os.getenv("MAX_LOSSES_DAY", "0"))   # 0 = مطفي. بعد N خسارات ف نفس النهار (توقيت نيويورك) ما كنصيفطوش إشارة جديدة (ديالنا فقط، ماشي Crabel)
 
 
 def send(text):
@@ -70,6 +71,37 @@ def to_spot(res, ref=None):
     if res.get("crabel") and res["crabel"].get("tp"):
         res["crabel"] = dict(res["crabel"], tp=res["crabel"]["tp"] + off)
     return res
+
+
+def _et_date(ts):
+    t = pd.Timestamp(ts)
+    t = t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+    return t.tz_convert("America/New_York").date()
+
+
+def trade_lost(tr, df, until=None):
+    """True = الستوب تضرب قبل الهدف الأول (خسارة، نفس تعريف الـ backtest) | False = الهدف الأول ضرب | None = مازال مفتوح"""
+    t0 = pd.Timestamp(tr["t"])
+    delta = ga.TF_DELTA[ga.ENTRY_TF]
+    side, sl, tp1 = tr["side"], tr["sl"], tr["tp1"]
+    for tm, hi, lo in zip(pd.to_datetime(df["time"]), df["high"].values, df["low"].values):
+        tm = tm.tz_localize("UTC") if tm.tzinfo is None else tm.tz_convert("UTC")
+        if tm < t0:
+            continue
+        if until is not None and tm + delta > until:
+            break
+        if (side == 1 and lo <= sl) or (side == -1 and hi >= sl):   # الستوب أولا (تحفظ)
+            return True
+        if (side == 1 and hi >= tp1) or (side == -1 and lo <= tp1):
+            return False
+    return None
+
+
+def losses_today(tracked, df, ts):
+    day = _et_date(ts)
+    until = pd.Timestamp(ts)
+    until = until.tz_localize("UTC") if until.tzinfo is None else until.tz_convert("UTC")
+    return sum(1 for tr in tracked if _et_date(tr["t"]) == day and trade_lost(tr, df, until) is True)
 
 
 def load_state():
@@ -185,15 +217,35 @@ def main():
                     send(build_message(to_spot(ga.crabel_result(result, c_), ref), new_signal=True))
                     sent.append(key)
             cr_sent = sent[-10:]
+        tr = [x for x in (state.get("tr") or []) if isinstance(x, dict)]
+        df_ = None
+        if MAX_LOSSES_DAY and new_sigs:
+            try:
+                df_ = ga.get_data(ga.ENTRY_TF, "59d" if ga.ENTRY_TF == "15m" else "60d")
+            except Exception as e:   # إيلا فشل التحميل ما نبلوكيوش (الأحسن نصيفطو إشارة)
+                print("loss-limit check skipped:", type(e).__name__)
         for key, r in new_sigs:
+            if df_ is not None:
+                try:
+                    n_loss = losses_today(tr, df_, r["bar_close"])
+                except Exception as e:
+                    print("loss-limit check failed:", type(e).__name__)
+                    n_loss = 0
+                if n_loss >= MAX_LOSSES_DAY:
+                    print(f"skipped {key}: {n_loss} losses today (limit {MAX_LOSSES_DAY})")
+                    sk.append(key)
+                    continue
             send(build_message(to_spot(r, ref), new_signal=True))
             sk.append(key)
+            if MAX_LOSSES_DAY:
+                tg = r.get("targets") or [r["tp1"]]
+                tr.append({"t": r["bar_close"], "side": int(r["side"]), "sl": float(r["sl"]), "tp1": float(tg[0])})
         if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
             send(build_message(to_spot(result, ref)))
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr")}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr")}, f)
 
 
 if __name__ == "__main__":
