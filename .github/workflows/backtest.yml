@@ -18,6 +18,9 @@ on:
       targets:
         description: "scalp: 5 أهداف بـ ATR مفصولة بفاصلة"
         default: "0.25,0.5,0.65,0.8,1.0"
+      max_losses_day:
+        description: "حد الخسارات ف النهار (0 = بلا حد)"
+        default: "0"
       be:
         description: "الستوب للدخول من بعد الهدف الأول (1/0)"
         default: "0"
@@ -83,6 +86,7 @@ jobs:
           ICT: ${{ (github.event.inputs.ict == '1' || github.event.inputs.ict == 'only') && '1' || '0' }}
           ICT_ONLY: ${{ github.event.inputs.ict == 'only' && '1' || '0' }}
           BE_AFTER_TP1: ${{ github.event.inputs.be || '0' }}
+          MAX_LOSSES_DAY: ${{ github.event.inputs.max_losses_day || '0' }}
           CRABEL: ${{ (github.event.inputs.crabel == '1' || github.event.inputs.crabel == 'only') && '1' || '0' }}
           CRABEL_ONLY: ${{ github.event.inputs.crabel == 'only' && '1' || '0' }}
           CRABEL_SESSIONS: ${{ github.event.inputs.crabel_sessions || '3-11,8-17' }}
@@ -100,7 +104,7 @@ jobs:
         run: |
           mkdir -p results
           set -o pipefail
-          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_be${BE_AFTER_TP1}_cr${CRABEL}${CRABEL_ONLY}x${CRABEL_X}tp${CRABEL_TP}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
+          python backtest.py "${{ github.event.inputs.step || '1' }}" 2>&1 | tee "results/bt_${ENTRY_TF}_ms${MIN_SCORE}_${SIGNAL_STYLE}_h${TRADE_HOURS_ET}_be${BE_AFTER_TP1}_ml${MAX_LOSSES_DAY}_cr${CRABEL}${CRABEL_ONLY}x${CRABEL_X}tp${CRABEL_TP}_ict${ICT}${ICT_ONLY}h${ICT_HTF}_r${ICT_RANGE_ET}_e${ICT_ENTRY_ET}_s${SCALP_STOP_ATR}_t${SCALP_TARGETS//,/-}.txt"
 
       - name: Save log to repo
         if: always()

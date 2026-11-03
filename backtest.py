@@ -89,10 +89,14 @@ def simulate_crabel(side, entry, sl, h, l, c, tp=None):
     return side * (c[-1] - entry) / risk, len(c), None
 
 
+MAX_LOSSES_DAY = int(os.getenv("MAX_LOSSES_DAY", "0"))   # 0 = بلا حد. بعد N خسارات سدات فنفس النهار (توقيت نيويورك) ما كندخلوش صفقة جديدة (ديالنا فقط)
+
+
 def run(df, dd, step=1, window=WINDOW):
     dd = dd.copy()
     dd["day"] = dd["time"].map(naive_utc).dt.normalize()
     trades, last_signal, busy_until = [], None, -1
+    closed_losses = []   # (index ديال السدان، تاريخ نيويورك)
     n = len(df)
     for i in range(window, n - 1, step):
         t = naive_utc(df["time"].iloc[i])
@@ -110,6 +114,10 @@ def run(df, dd, step=1, window=WINDOW):
         last_signal = signal          # نفس منطق البوت الحي
         if not is_new or i <= busy_until:
             continue
+        if MAX_LOSSES_DAY and not res.get("crabel"):
+            today_et = _et(df["time"].iloc[i]).date()
+            if sum(1 for ci, dd_ in closed_losses if ci <= i and dd_ == today_et) >= MAX_LOSSES_DAY:
+                continue
         fut = df.iloc[i + 1: i + 1 + MAX_HOLD]
         if res.get("crabel"):
             e0 = _et(df["time"].iloc[i]).date()
@@ -137,6 +145,8 @@ def run(df, dd, step=1, window=WINDOW):
                        "tp1": res["tp1"], "tp2": res["tp2"], "risk": res["risk"],
                        "bars_held": held, "R": round(r, 3), "hit1": hit1})
         busy_until = i + held
+        if r < 0 and not res.get("crabel"):
+            closed_losses.append((i + held, _et(df["time"].iloc[i]).date()))
     return trades
 
 
