@@ -10,6 +10,10 @@ on:
         description: "صيفط صفقة وهمية للتجربة"
         type: boolean
         default: false
+      always_send:
+        description: "تشغيل يدوي: صيفط رسالة قصيرة وسجل الحالة (cron-job.org كيشغل بلا هادشي)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -65,13 +69,13 @@ jobs:
           MAX_LOSSES_DAY: "2"   # بعد خسارتين ف نفس النهار (نيويورك) ما كتصيفطش إشارات جديدة ديال السكور (Crabel ما كيتأثرش). 0 = مطفي
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
-          ALWAYS_SEND: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          ALWAYS_SEND: ${{ github.event.inputs.always_send == 'true' && '1' || '0' }}
         run: |
           set -o pipefail
           python gold_bot.py 2>&1 | tee bot_run.log
 
       - name: Save live status (manual runs only)
-        if: github.event_name == 'workflow_dispatch' && always()
+        if: github.event.inputs.always_send == 'true' && always()
         run: |
           mkdir -p results
           cp bot_run.log results/bot_run_15m.txt || true
