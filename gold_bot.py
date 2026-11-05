@@ -12,6 +12,7 @@ TEST_SIGNAL = os.getenv("TEST_SIGNAL", "0") == "1"
 SCALP_OLD = os.getenv("SCALP_OLD", "0") == "1"            # إشارة سكالب إضافية (النسخة القديمة): ستوب واسع + هدف واحد صغير
 SCALP_OLD_STOP_ATR = float(os.getenv("SCALP_OLD_STOP_ATR", "5.0"))
 SCALP_OLD_TP_ATR = float(os.getenv("SCALP_OLD_TP_ATR", "0.25"))
+LATE_NOTE_MIN = int(os.getenv("LATE_NOTE_MIN", "0"))   # إيلا الإشارة وصلات متأخرة X دقيقة ولا أكثر كنزيدو سطر تنبيه (0 = مطفي)
 MAX_LOSSES_DAY = int(os.getenv("MAX_LOSSES_DAY", "0"))   # 0 = مطفي. بعد N خسارات ف نفس النهار (توقيت نيويورك) ما كنصيفطوش إشارة جديدة (ديالنا فقط، ماشي Crabel)
 
 
@@ -165,6 +166,10 @@ def build_message(r, new_signal=False):
         try:
             t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")
             lines.append(f"🕒 وقت الإشارة: {t:%H:%M} (نيويورك)")
+            if new_signal and LATE_NOTE_MIN:
+                late = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(r["bar_close"]).tz_convert("UTC")).total_seconds() / 60
+                if late >= LATE_NOTE_MIN:
+                    lines.append(f"⏱ وصلات متأخرة {int(late)} دقيقة: شوف السعر الحالي قبل ما تدخل")
             a, b = (int(x) for x in os.getenv("STRONG_HOURS_ET", "3-12").split("-"))
             if not r.get("crabel") and not (a <= t.hour <= b):
                 lines.append("⚠️ خارج ساعات لندن/نيويورك: أضعف فالـ backtest (PF أقل من 1)، خاطر بأقل")

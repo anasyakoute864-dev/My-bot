@@ -17,15 +17,17 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
+# التشغيلات اليدوية (تجربة/حالة) عندها مجموعة خاصة باش ما تستناش السلسلة الطويلة
 concurrency:
-  group: gold-signals-15m
+  group: gold-signals-15m-${{ (github.event.inputs.test_signal == 'true' || github.event.inputs.always_send == 'true') && 'manual' || 'chain' }}
   cancel-in-progress: false
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -65,6 +67,7 @@ jobs:
           ICT_ENTRY_ET: "2-11"
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
+          LATE_NOTE_MIN: "20"   # إيلا الإشارة وصلات متأخرة 20 دقيقة ولا أكثر كيزاد سطر تنبيه. 0 = مطفي
           SCALP_OLD: "1"   # إشارة سكالب إضافية (علامة "Scalp"): ستوب 5×ATR وهدف واحد 0.25×ATR. 0 = مطفي
           MAX_LOSSES_DAY: "2"   # بعد خسارتين ف نفس النهار (نيويورك) ما كتصيفطش إشارات جديدة ديال السكور (Crabel ما كيتأثرش). 0 = مطفي
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
@@ -72,7 +75,25 @@ jobs:
           ALWAYS_SEND: ${{ github.event.inputs.always_send == 'true' && '1' || '0' }}
         run: |
           set -o pipefail
-          python gold_bot.py 2>&1 | tee bot_run.log
+          if [ "${{ github.event.inputs.test_signal }}" = "true" ] || [ "${{ github.event.inputs.always_send }}" = "true" ]; then
+            python gold_bot.py 2>&1 | tee bot_run.log
+          else
+            LOOP_MINUTES=50 bash loop.sh
+          fi
+
+      # كيعاود يشغل نفسو (تشغيل سلسلة) باش البوت يبقى خدام كل 15 دقيقة بلا ما نستناو جدول GitHub.
+      # كيوقف وحدو ف نهاية الأسبوع وخارج ساعات التداول (06:00-22:59 UTC، الاثنين-الجمعة). الجدول القديم بقا احتياط.
+      - name: Chain next run
+        if: always() && github.event.inputs.test_signal != 'true' && github.event.inputs.always_send != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELF_CHAIN: "1"
+        run: |
+          [ "$SELF_CHAIN" = "1" ] || exit 0
+          dow=$(date -u +%u); hr=$(date -u +%-H)
+          if [ "$dow" -le 5 ] && [ "$hr" -ge 6 ] && [ "$hr" -le 22 ] && ! { [ "$dow" -eq 5 ] && [ "$hr" -ge 22 ]; }; then
+            gh api -X POST repos/${{ github.repository }}/actions/workflows/gold-bot-15m.yml/dispatches -f ref=main || true
+          fi
 
       - name: Save live status (manual runs only)
         if: github.event.inputs.always_send == 'true' && always()
