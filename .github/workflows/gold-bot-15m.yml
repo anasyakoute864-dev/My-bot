@@ -52,7 +52,7 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           ENTRY_TF: "15m"
           MIN_SCORE: "3"
-          TRADE_HOURS_ET: "3-17"   # الاستراتيجية ديالنا: من 3:00 حتى آخر جلسة نيويورك 17:00 (نيويورك). Crabel عندو ساعاتو
+          TRADE_HOURS_ET: "3-12"   # الاستراتيجية ديالنا (والـ Scalp): من 3:00 حتى 12:00 (نيويورك) - أحسن ف الـ backtest. Crabel عندو ساعاتو
           SIGNAL_STYLE: scalp
           SCALP_STOP_ATR: "2.5"   # ستوب 2.5 ATR + الستوب للدخول من بعد الهدف الأول (backtest: PF 2.0)
           SCALP_TARGETS: "0.75,1,1.5,2,2.5"   # 5 أهداف بـ ATR
@@ -69,7 +69,7 @@ jobs:
           SIGNAL_LABEL: "⚡ 15m"
           LATE_NOTE_MIN: "20"   # إيلا الإشارة وصلات متأخرة 20 دقيقة ولا أكثر كيزاد سطر تنبيه. 0 = مطفي
           SCALP_OLD: "1"   # إشارة سكالب إضافية (علامة "Scalp"): ستوب 5×ATR وهدف واحد 0.25×ATR. 0 = مطفي
-          MAX_LOSSES_DAY: "2"   # بعد خسارتين ف نفس النهار (نيويورك) ما كتصيفطش إشارات جديدة ديال السكور (Crabel ما كيتأثرش). 0 = مطفي
+          MAX_LOSSES_DAY: "1"   # بعد خسارتين ف نفس النهار (نيويورك) ما كتصيفطش إشارات جديدة ديال السكور (Crabel ما كيتأثرش). 0 = مطفي
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event.inputs.always_send == 'true' && '1' || '0' }}
