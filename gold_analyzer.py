@@ -353,7 +353,8 @@ def crabel_all(df):
             continue                          # الـTP تضرب
         out_.append({"dir": d, "session": sess.strip(), "date": str(today), "open": op, "stretch": stretch,
                      "entry": float(entry), "sl": float(sl), "risk": float(abs(entry - sl)), "exit": h1,
-                     "tp": tp, "bars_ago": int(n - 1 - k)})
+                     "tp": tp, "bars_ago": int(n - 1 - k),
+                     "trigger_close": (t.iloc[k] + TF_DELTA[ENTRY_TF]).isoformat()})   # وقت سد شمعة الاختراق الحقيقي
     return out_
 
 

@@ -82,7 +82,7 @@ jobs:
           fi
 
       # كيعاود يشغل نفسو (تشغيل سلسلة) باش البوت يبقى خدام كل 15 دقيقة بلا ما نستناو جدول GitHub.
-      # كيوقف وحدو ف نهاية الأسبوع وخارج ساعات التداول (06:00-22:59 UTC، الاثنين-الجمعة). الجدول القديم بقا احتياط.
+      # كيوقف وحدو ف نهاية الأسبوع (من الجمعة 22:00 UTC حتى الاثنين). الجدول القديم بقا احتياط.
       - name: Chain next run
         if: always() && github.event.inputs.test_signal != 'true' && github.event.inputs.always_send != 'true'
         env:
@@ -91,7 +91,7 @@ jobs:
         run: |
           [ "$SELF_CHAIN" = "1" ] || exit 0
           dow=$(date -u +%u); hr=$(date -u +%-H)
-          if [ "$dow" -le 5 ] && [ "$hr" -ge 6 ] && [ "$hr" -le 22 ] && ! { [ "$dow" -eq 5 ] && [ "$hr" -ge 22 ]; }; then
+          if [ "$dow" -le 5 ] && ! { [ "$dow" -eq 5 ] && [ "$hr" -ge 22 ]; }; then
             gh api -X POST repos/${{ github.repository }}/actions/workflows/gold-bot-15m.yml/dispatches -f ref=main || true
           fi
 

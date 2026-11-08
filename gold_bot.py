@@ -162,12 +162,13 @@ def build_message(r, new_signal=False):
         lines.append("🔁 من بعد الهدف الأول: حرك الستوب لنقطة الدخول")
     if r.get("ict"):
         lines.append("🧩 ICT: تجميع ← تلاعب ← CISD" + (" ← FVG" if r["ict"].get("fvg") else ""))
-    if r.get("bar_close"):
+    bc = (r.get("crabel") or {}).get("trigger_close") or r.get("bar_close")   # Crabel: وقت الاختراق الحقيقي ماشي وقت الفحص
+    if bc:
         try:
-            t = pd.Timestamp(r["bar_close"]).tz_convert("America/New_York")
+            t = pd.Timestamp(bc).tz_convert("America/New_York")
             lines.append(f"🕒 وقت الإشارة: {t:%H:%M} (نيويورك)")
             if new_signal and LATE_NOTE_MIN:
-                late = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(r["bar_close"]).tz_convert("UTC")).total_seconds() / 60
+                late = (pd.Timestamp.now(tz="UTC") - pd.Timestamp(bc).tz_convert("UTC")).total_seconds() / 60
                 if late >= LATE_NOTE_MIN:
                     lines.append(f"⏱ وصلات متأخرة {int(late)} دقيقة: شوف السعر الحالي قبل ما تدخل")
             a, b = (int(x) for x in os.getenv("STRONG_HOURS_ET", "3-12").split("-"))
