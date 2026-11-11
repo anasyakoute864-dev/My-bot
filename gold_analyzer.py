@@ -15,7 +15,7 @@ import yfinance as yf
 
 SYMBOL = os.getenv("SYMBOL", "GC=F")   # GC=F = فيوتشرز | XAUUSD=X = الذهب الفوري (سعر البروكر)
 ENTRY_TF = os.getenv("ENTRY_TF", "1h")   # فريم الدخول: 1h ولا 15m
-TF_DELTA = {"15m": pd.Timedelta(minutes=15), "1h": pd.Timedelta(hours=1), "1d": pd.Timedelta(days=1)}
+TF_DELTA = {"5m": pd.Timedelta(minutes=5), "15m": pd.Timedelta(minutes=15), "1h": pd.Timedelta(hours=1), "1d": pd.Timedelta(days=1)}
 TF_PERIOD = {"15m": "59d", "1h": "730d"}   # Yahoo كيعطي غير 60 يوم للـ 15m
 HTF = "1d"                 # الفريم الكبير
 PIVOT_N = 3                # عدد الشموع لتحديد القمم/القيعان

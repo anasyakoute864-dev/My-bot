@@ -1,0 +1,36 @@
+name: fib-backtest-5m
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "الرمز: GC=F (الذهب)"
+        default: "GC=F"
+
+permissions:
+  contents: write
+
+jobs:
+  fib:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install yfinance pandas numpy requests
+      - name: Run Fib backtest 5m
+        env:
+          SYMBOL: ${{ github.event.inputs.symbol || 'GC=F' }}
+          FIB_TF: 5m
+        run: python fib_backtest.py
+      - name: Save log to repo
+        if: always()
+        run: |
+          git config user.name "gold-bot"
+          git config user.email "gold-bot@users.noreply.github.com"
+          git add -f results/fib5_backtest.txt
+          git commit -m "fib 5m backtest log" || exit 0
+          for i in 1 2 3 4 5 6; do git pull --rebase -q origin main && git push -q && break; sleep $((RANDOM % 10 + 3)); done
