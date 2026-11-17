@@ -69,8 +69,8 @@ jobs:
           SIGNAL_LABEL: "⚡ 15m"
           LATE_NOTE_MIN: "20"   # إيلا الإشارة وصلات متأخرة 20 دقيقة ولا أكثر كيزاد سطر تنبيه. 0 = مطفي
           SCALP_OLD: "1"   # إشارة سكالب إضافية (علامة "Scalp"): ستوب 5×ATR وهدف واحد 0.25×ATR. 0 = مطفي
-          MAX_LOSSES_DAY: "1"
-          SIGNAL_COOLDOWN_MIN: "60"   # بعد خسارتين ف نفس النهار (نيويورك) ما كتصيفطش إشارات جديدة ديال السكور (Crabel ما كيتأثرش). 0 = مطفي
+          MAX_LOSSES_DAY: "1"   # حد الخسارة اليومي (0 = مطفي)
+          SIGNAL_COOLDOWN_MIN: "60"   # ما كتصيفطش إشارة فنفس الاتجاه داخل 60 دقيقة من إشارة أخرى (0 = مطفي)
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event.inputs.always_send == 'true' && '1' || '0' }}
