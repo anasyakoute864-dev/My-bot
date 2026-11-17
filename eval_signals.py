@@ -1,5 +1,6 @@
 """يقيّم كل إشارة مرسلة (signals_eval.csv) على بيانات 1د: ستوب أولا إيلا جوج فنفس الشمعة. الخروج 17:00 ET (22:00 UTC) ولا exit_utc."""
-import pandas as pd, numpy as np, yfinance as yf
+import os, pandas as pd, numpy as np, yfinance as yf
+TP_PTS = float(os.getenv("TP_PTS", "0"))
 sg = pd.read_csv("signals_eval.csv", parse_dates=["time_utc"])
 df = yf.download("GC=F", interval="1m", period="8d", auto_adjust=False, progress=False)
 df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
@@ -12,6 +13,8 @@ for _, s in sg.iterrows():
         hh, mm = map(int, s.exit_utc.split(":")); end = t0.normalize() + pd.Timedelta(hours=hh, minutes=mm)
     w = df[(df.index > t0) & (df.index <= end)]
     d = 1 if s.side == "BUY" else -1
+    if TP_PTS and s.kind == "ours/scalp":
+        s["tp1"] = s.entry + d * TP_PTS
     res, tpx = "open/نهاية الجلسة", None
     for t, b in w.iterrows():
         hs = (d == 1 and b.low <= s.stop) or (d == -1 and b.high >= s.stop)
@@ -25,8 +28,10 @@ for _, s in sg.iterrows():
     out.append(f"{s.time_utc:%m-%d %H:%M}Z {s.kind:13} {s.side:4} @{s.entry:.1f} sl={s.stop:.1f} tp={s.tp1:.1f} -> {res:18} {pts:+.1f}pt | أقصى ربح عائم {mfe:+.1f} | أقصى عكس {mae:+.1f}")
 lines = ["تقييم الإشارات (بيانات GC=F 1د، ستوب أولا):", ""] + out
 for k in ("ours/scalp", "crabel_london", "crabel_ny"):
-    sub = [l for l in out if f" {k} " in l or l.split()[1] == k]
+    sub = [l for l in out if l.split()[1] == k]
     w_ = sum("ربح" in l for l in sub); l_ = sum("خسارة" in l for l in sub)
-    lines.append(f"{k}: {len(sub)} إشارة | ربح {w_} | خسارة {l_} | مفتوحة {len(sub)-w_-l_}")
+    pts = sum(float(l.split("->")[1].split("pt")[0].split()[-1]) for l in sub)
+    lines.append(f"{k}: {len(sub)} إشارة | ربح {w_} | خسارة {l_} | مفتوحة {len(sub)-w_-l_} | مجموع {pts:+.1f} نقطة")
 import os; os.makedirs("results", exist_ok=True)
-open("results/eval_signals.txt", "w").write("\n".join(lines)); print("\n".join(lines))
+name = "results/eval_signals_tp%d.txt" % TP_PTS if TP_PTS else "results/eval_signals.txt"
+open(name, "w").write("\n".join(lines)); print("\n".join(lines))
