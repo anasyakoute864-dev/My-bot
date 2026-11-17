@@ -109,6 +109,23 @@ def trade_lost(tr, df, until=None):
     return None
 
 
+COOLDOWN_MIN = int(os.getenv("SIGNAL_COOLDOWN_MIN", "0"))   # 0 = مطفي. كيمنع إشارة فنفس الاتجاه من بعد أخرى داخل هاد المدة (ما كنزيدوش فنفس الحركة)
+
+
+def recent_same_side(tracked, r, minutes):
+    import pandas as pd
+    try:
+        t1 = pd.Timestamp(r["bar_close"])
+        for x in tracked:
+            if int(x.get("side", 0)) == int(r["side"]):
+                d = (t1 - pd.Timestamp(x["t"])).total_seconds() / 60
+                if 0 <= d < minutes:
+                    return True
+    except Exception:
+        return False
+    return False
+
+
 def losses_today(tracked, df, ts):
     day = _et_date(ts)
     until = pd.Timestamp(ts)
@@ -249,6 +266,10 @@ def main():
             except Exception as e:   # إيلا فشل التحميل ما نبلوكيوش (الأحسن نصيفطو إشارة)
                 print("loss-limit check skipped:", type(e).__name__)
         for key, r in new_sigs:
+            if COOLDOWN_MIN and recent_same_side(tr, r, COOLDOWN_MIN):
+                print(f"skipped {key}: same-side signal within {COOLDOWN_MIN} min")
+                sk.append(key)
+                continue
             if df_ is not None:
                 try:
                     n_loss = losses_today(tr, df_, r["bar_close"])
@@ -265,7 +286,7 @@ def main():
             if SCALP_OLD:
                 send(build_message(to_spot(scalp_old(r), ref), new_signal=True))
             sk.append(key)
-            if MAX_LOSSES_DAY:
+            if MAX_LOSSES_DAY or COOLDOWN_MIN:
                 tg = r.get("targets") or [r["tp1"]]
                 tr.append({"t": r["bar_close"], "side": int(r["side"]), "sl": float(r["sl"]), "tp1": float(tg[0])})
         if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
