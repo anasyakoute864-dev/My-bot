@@ -112,6 +112,7 @@ def trade_lost(tr, df, until=None):
 MAX_SIGNALS_DAY = int(os.getenv("MAX_SIGNALS_DAY", "0"))   # 0 = مطفي. أقصى عدد إشارات ديالنا فالنهار (توقيت نيويورك)
 DAILY_SUMMARY = os.getenv("DAILY_SUMMARY", "0") == "1"      # ملخص يومي فتليغرام (من 17:00 نيويورك)
 SWING = os.getenv("SWING", "0") == "1"                      # Claude Swing: سوينغ 1 ساعة (Donchian 20/10 شراء فقط)
+SMC = os.getenv("SMC", "0") == "1"                          # SMC تجريبي: تغير الاتجاه + FVG (15 دقيقة)
 COOLDOWN_MIN = int(os.getenv("SIGNAL_COOLDOWN_MIN", "0"))   # 0 = مطفي. كيمنع إشارة فنفس الاتجاه من بعد أخرى داخل هاد المدة (ما كنزيدوش فنفس الحركة)
 
 
@@ -148,6 +149,19 @@ def swing_messages(events, off):
                        f"الخروج حوالي {ev['price'] + off:.0f} | النتيجة حوالي {pts:+.0f} نقطة\n"
                        f"🕒 {et} (نيويورك)")
     return out
+
+
+def smc_message(st, off):
+    et = pd.Timestamp(st["t"]).tz_convert("America/New_York").strftime("%H:%M")
+    buy = st["side"] == 1
+    z_lo, z_hi = st["zone"]
+    cancel = f"تحت {z_lo + off:.0f}" if buy else f"فوق {z_hi + off:.0f}"
+    return ("🧩 SMC (تجريبي، 15 دقيقة) - أمر معلق\n"
+            f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} {'Buy' if buy else 'Sell'} Limit @ {st['entry'] + off:.0f}\n"
+            f"وقف الخسارة: 🔴 {st['sl'] + off:.0f}\n"
+            f"الهدف: 🎯 {st['tp'] + off:.0f} (آخر {'قمة' if buy else 'قاع'})\n"
+            f"صالح 5 ساعات. إلغيه إيلا سدات شمعة 15د {cancel} قبل ما يتنفذ.\n"
+            f"🕒 وقت الإشارة: {et} (نيويورك)")
 
 
 def day_trades(tracked, day):
@@ -367,6 +381,22 @@ def main():
         except Exception as e:
             print("swing failed:", type(e).__name__, e)
 
+    smk = list(state.get("smk") or [])
+    if result and SMC:
+        try:
+            import smc_live
+            df_m = ga.get_data("15m", "59d")
+            sts = [x for x in smc_live.detect(df_m, pd.Timestamp.now(tz="UTC")) if x["key"] not in smk]
+            if sts:
+                last_close = float(df_m["close"].iloc[-1])
+                spot = spot_price() if SPOT_ADJUST else None
+                off = (spot - last_close) if spot is not None and abs(spot - last_close) <= 60 else 0.0
+                for x in sts:
+                    send(smc_message(x, off))
+                    smk.append(x["key"])
+        except Exception as e:
+            print("smc failed:", type(e).__name__, e)
+
     ds = state.get("ds")
     if result and DAILY_SUMMARY:
         try:
@@ -381,7 +411,7 @@ def main():
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "smk": smk[-20:]}, f)
 
 
 if __name__ == "__main__":

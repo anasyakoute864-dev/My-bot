@@ -74,6 +74,7 @@ jobs:
           MAX_SIGNALS_DAY: "6"   # أقصى 6 إشارات ديالنا فالنهار
           DAILY_SUMMARY: "1"    # ملخص يومي فتليغرام من 17:00 نيويورك
           SWING: "1"    # Claude Swing: سوينغ 1 ساعة، Donchian 20/10 شراء فقط، ستوب 2×ATR20
+          SMC: "1"      # SMC تجريبي: تغير الاتجاه + FVG، أمر معلق (15 دقيقة)
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event.inputs.always_send == 'true' && '1' || '0' }}
