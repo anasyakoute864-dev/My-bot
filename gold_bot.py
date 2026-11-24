@@ -295,8 +295,18 @@ def main():
                    "targets": None, "crabel": {"exit": 17, "tp": 4152.0},
                    "bar_close": pd.Timestamp.now(tz="UTC").floor("15min").isoformat()}
         send("🧪 رسالة تجريبية (وهمية) - إشارة Crabel\n\n" + build_message(fake_cr))
-        fake_sc = scalp_old(dict(fake, atr=8.0))
-        send("🧪 رسالة تجريبية (وهمية) - إشارة Scalp\n\n" + build_message(fake_sc))
+        if SCALP_OLD:
+            fake_sc = scalp_old(dict(fake, atr=8.0))
+            send("🧪 رسالة تجريبية (وهمية) - إشارة Scalp\n\n" + build_message(fake_sc))
+        t_ = pd.Timestamp.now(tz="UTC").tz_convert("America/New_York")
+        send("🧪 رسالة تجريبية (وهمية) - Claude Swing\n\n" + swing_messages(
+            [{"kind": "entry", "price": 4140.0, "sl": 4100.0, "risk": 40.0, "t": t_}], 0.0)[0])
+        send("🧪 رسالة تجريبية (وهمية) - Claude Swing (خروج)\n\n" + swing_messages(
+            [{"kind": "exit", "reason": "channel", "price": 4165.0, "entry": 4140.0, "t": t_}], 0.0)[0])
+        send("🧪 رسالة تجريبية (وهمية) - SMC\n\n" + smc_message(
+            {"side": 1, "entry": 4140.0, "sl": 4128.0, "tp": 4165.0, "zone": (4134.0, 4140.0), "t": t_}, 0.0))
+        send("🧪 رسالة تجريبية (وهمية) - Claude Daily\n\n" + cdaily_message(
+            {"sig": "A", "side": -1, "entry": 4140.0, "sl": 4151.0, "tp": 4123.5, "exit": 11, "t": t_}, 0.0))
         return
     buf = io.StringIO()
     try:
