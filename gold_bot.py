@@ -136,16 +136,17 @@ def swing_messages(events, off):
     out = []
     for ev in events:
         et = pd.Timestamp(ev["t"]).tz_convert("America/New_York").strftime("%H:%M")
+        buy = ev.get("side", 1) == 1
         if ev["kind"] == "entry":
             out.append("🧭 Claude Swing (سوينغ 1 ساعة)\n"
-                       f"شراء الذهب ⬆️ @ {ev['price'] + off:.0f}\n"
+                       f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {ev['price'] + off:.0f}\n"
                        f"وقف الخسارة: 🔴 {ev['sl'] + off:.0f} ({ev['risk']:.0f} نقطة)\n"
-                       "الخروج: غادي نصيفط ليك رسالة ملي تسد شمعة ساعة تحت أدنى 10 شموع، ولا ملي يضرب الستوب\n"
+                       f"الخروج: غادي نصيفط ليك رسالة ملي تسد شمعة ساعة {'تحت أدنى' if buy else 'فوق أعلى'} 10 شموع، ولا ملي يضرب الستوب\n"
                        f"🕒 وقت الإشارة: {et} (نيويورك)")
         else:
-            pts = ev["price"] - ev["entry"]
-            why = "ضرب الستوب" if ev["reason"] == "stop" else "كسر أدنى 10 شموع"
-            out.append("🧭 Claude Swing: اخرج من الشراء\n"
+            pts = (ev["price"] - ev["entry"]) * (1 if buy else -1)
+            why = "ضرب الستوب" if ev["reason"] == "stop" else ("كسر أدنى 10 شموع" if buy else "كسر أعلى 10 شموع")
+            out.append(f"🧭 Claude Swing: اخرج من {'الشراء' if buy else 'البيع'}\n"
                        f"السبب: {why}\n"
                        f"الخروج حوالي {ev['price'] + off:.0f} | النتيجة حوالي {pts:+.0f} نقطة\n"
                        f"🕒 {et} (نيويورك)")
@@ -300,9 +301,9 @@ def main():
             send("🧪 رسالة تجريبية (وهمية) - إشارة Scalp\n\n" + build_message(fake_sc))
         t_ = pd.Timestamp.now(tz="UTC").tz_convert("America/New_York")
         send("🧪 رسالة تجريبية (وهمية) - Claude Swing\n\n" + swing_messages(
-            [{"kind": "entry", "price": 4140.0, "sl": 4100.0, "risk": 40.0, "t": t_}], 0.0)[0])
+            [{"kind": "entry", "side": -1, "price": 4140.0, "sl": 4180.0, "risk": 40.0, "t": t_}], 0.0)[0])
         send("🧪 رسالة تجريبية (وهمية) - Claude Swing (خروج)\n\n" + swing_messages(
-            [{"kind": "exit", "reason": "channel", "price": 4165.0, "entry": 4140.0, "t": t_}], 0.0)[0])
+            [{"kind": "exit", "side": -1, "reason": "channel", "price": 4115.0, "entry": 4140.0, "t": t_}], 0.0)[0])
         send("🧪 رسالة تجريبية (وهمية) - SMC\n\n" + smc_message(
             {"side": 1, "entry": 4140.0, "sl": 4128.0, "tp": 4165.0, "zone": (4134.0, 4140.0), "t": t_}, 0.0))
         send("🧪 رسالة تجريبية (وهمية) - Claude Daily\n\n" + cdaily_message(
