@@ -52,7 +52,7 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           ENTRY_TF: "15m"
           MIN_SCORE: "3"
-          TRADE_HOURS_ET: "3-12"   # الاستراتيجية ديالنا (والـ Scalp): من 3:00 حتى 12:00 (نيويورك) - أحسن ف الـ backtest. Crabel عندو ساعاتو
+          TRADE_HOURS_ET: "off"   # الاستراتيجية ديالنا (السكور): 24/24 (الـ backtest كان أحسن فـ 3-12 نيويورك)
           SIGNAL_STYLE: scalp
           SCALP_STOP_ATR: "2.5"   # ستوب 2.5 ATR + الستوب للدخول من بعد الهدف الأول (backtest: PF 2.0)
           SCALP_TARGETS: "0.75,1,1.5,2,2.5"   # 5 أهداف بـ ATR

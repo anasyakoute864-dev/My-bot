@@ -15,7 +15,7 @@ def pivots(h, l):
     return ph, pl
 
 
-def detect(df, now, stale_min=45, hours=(3, 17)):
+def detect(df, now, stale_min=45, hours=(0, 24)):
     """كيرجع قائمة setups ديال آخر شمعة مسدودة: {"key","side","entry","sl","tp","zone","t"}"""
     h, l, c, a = (df[x].values for x in ("high", "low", "close", "atr"))
     n = len(df)
