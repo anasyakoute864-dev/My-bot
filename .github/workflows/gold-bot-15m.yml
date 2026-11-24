@@ -68,9 +68,11 @@ jobs:
           STATE_FILE: last_signal_15m.json
           SIGNAL_LABEL: "⚡ 15m"
           LATE_NOTE_MIN: "20"   # إيلا الإشارة وصلات متأخرة 20 دقيقة ولا أكثر كيزاد سطر تنبيه. 0 = مطفي
-          SCALP_OLD: "1"   # إشارة سكالب إضافية (علامة "Scalp"): ستوب 5×ATR وهدف واحد 0.25×ATR. 0 = مطفي
+          SCALP_OLD: "0"   # إشارة Scalp القديمة موقوفة (نتايجها ضعيفة)   # إشارة سكالب إضافية (علامة "Scalp"): ستوب 5×ATR وهدف واحد 0.25×ATR. 0 = مطفي
           MAX_LOSSES_DAY: "1"   # حد الخسارة اليومي (0 = مطفي)
           SIGNAL_COOLDOWN_MIN: "60"   # ما كتصيفطش إشارة فنفس الاتجاه داخل 60 دقيقة من إشارة أخرى (0 = مطفي)
+          MAX_SIGNALS_DAY: "6"   # أقصى 6 إشارات ديالنا فالنهار
+          DAILY_SUMMARY: "1"    # ملخص يومي فتليغرام من 17:00 نيويورك
           STRONG_HOURS_ET: "3-17"   # الإشارات خارج هاد الساعات كتجي بتحذير
           TEST_SIGNAL: ${{ github.event.inputs.test_signal == 'true' && '1' || '0' }}
           ALWAYS_SEND: ${{ github.event.inputs.always_send == 'true' && '1' || '0' }}

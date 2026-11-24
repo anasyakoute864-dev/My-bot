@@ -109,6 +109,8 @@ def trade_lost(tr, df, until=None):
     return None
 
 
+MAX_SIGNALS_DAY = int(os.getenv("MAX_SIGNALS_DAY", "0"))   # 0 = مطفي. أقصى عدد إشارات ديالنا فالنهار (توقيت نيويورك)
+DAILY_SUMMARY = os.getenv("DAILY_SUMMARY", "0") == "1"      # ملخص يومي فتليغرام (من 17:00 نيويورك)
 COOLDOWN_MIN = int(os.getenv("SIGNAL_COOLDOWN_MIN", "0"))   # 0 = مطفي. كيمنع إشارة فنفس الاتجاه من بعد أخرى داخل هاد المدة (ما كنزيدوش فنفس الحركة)
 
 
@@ -124,6 +126,37 @@ def recent_same_side(tracked, r, minutes):
     except Exception:
         return False
     return False
+
+
+def day_trades(tracked, day):
+    out = []
+    for x in tracked:
+        try:
+            if str(_et_date(pd.Timestamp(x["t"]))) == day:
+                out.append(x)
+        except Exception:
+            pass
+    return out
+
+
+def daily_summary_text(tracked, df, day):
+    ts = day_trades(tracked, day)
+    if not ts:
+        return f"📊 ملخص {day}: ما كانتش إشارة ديالنا (السكور) اليوم."
+    lines, w, l, o = [], 0, 0, 0
+    for x in ts:
+        res = trade_lost(x, df)
+        et = pd.Timestamp(x["t"]).tz_convert("America/New_York").strftime("%H:%M")
+        side = "شراء" if x["side"] == 1 else "بيع"
+        if res is True:
+            l += 1; tag = "❌ الستوب"
+        elif res is False:
+            w += 1; tag = "✅ الهدف الأول"
+        else:
+            o += 1; tag = "⏳ مفتوحة"
+        lines.append(f"{et} {side}: {tag}")
+    return (f"📊 ملخص {day} (إشارات السكور): {len(ts)} إشارة | ✅ {w} | ❌ {l} | ⏳ {o}\n"
+            + "\n".join(lines) + "\n(الربح = الهدف الأول قبل الستوب. Crabel ما داخلش فهاد الملخص.)")
 
 
 def losses_today(tracked, df, ts):
@@ -270,6 +303,10 @@ def main():
                 print(f"skipped {key}: same-side signal within {COOLDOWN_MIN} min")
                 sk.append(key)
                 continue
+            if MAX_SIGNALS_DAY and len(day_trades(tr, str(_et_date(pd.Timestamp(r["bar_close"]))))) >= MAX_SIGNALS_DAY:
+                print(f"skipped {key}: {MAX_SIGNALS_DAY} signals already today")
+                sk.append(key)
+                continue
             if df_ is not None:
                 try:
                     n_loss = losses_today(tr, df_, r["bar_close"])
@@ -286,15 +323,27 @@ def main():
             if SCALP_OLD:
                 send(build_message(to_spot(scalp_old(r), ref), new_signal=True))
             sk.append(key)
-            if MAX_LOSSES_DAY or COOLDOWN_MIN:
+            if MAX_LOSSES_DAY or COOLDOWN_MIN or MAX_SIGNALS_DAY or DAILY_SUMMARY:
                 tg = r.get("targets") or [r["tp1"]]
                 tr.append({"t": r["bar_close"], "side": int(r["side"]), "sl": float(r["sl"]), "tp1": float(tg[0])})
         if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
             send(build_message(to_spot(result, ref)))
 
+    ds = state.get("ds")
+    if result and DAILY_SUMMARY:
+        try:
+            now_et = pd.Timestamp.now(tz="UTC").tz_convert("America/New_York")
+            day = str(now_et.date())
+            if now_et.hour >= 17 and ds != day and now_et.weekday() < 5:
+                df_s = ga.get_data(ga.ENTRY_TF, "59d" if ga.ENTRY_TF == "15m" else "60d")
+                send(daily_summary_text(tr, df_s, day))
+                ds = day
+        except Exception as e:
+            print("daily summary failed:", type(e).__name__, e)
+
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr")}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds}, f)
 
 
 if __name__ == "__main__":
