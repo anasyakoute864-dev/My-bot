@@ -113,6 +113,7 @@ MAX_SIGNALS_DAY = int(os.getenv("MAX_SIGNALS_DAY", "0"))   # 0 = مطفي. أق�
 DAILY_SUMMARY = os.getenv("DAILY_SUMMARY", "0") == "1"      # ملخص يومي فتليغرام (من 17:00 نيويورك)
 SWING = os.getenv("SWING", "0") == "1"                      # Claude Swing: سوينغ 1 ساعة (Donchian 20/10 شراء فقط)
 SMC = os.getenv("SMC", "0") == "1"                          # SMC تجريبي: تغير الاتجاه + FVG (15 دقيقة)
+CDAILY = os.getenv("CLAUDE_DAILY", "0") == "1"             # Claude Daily: إشارتين فالنهار (لندن + نيويورك) باتجاه اليوم
 COOLDOWN_MIN = int(os.getenv("SIGNAL_COOLDOWN_MIN", "0"))   # 0 = مطفي. كيمنع إشارة فنفس الاتجاه من بعد أخرى داخل هاد المدة (ما كنزيدوش فنفس الحركة)
 
 
@@ -161,6 +162,18 @@ def smc_message(st, off):
             f"وقف الخسارة: 🔴 {st['sl'] + off:.0f}\n"
             f"الهدف: 🎯 {st['tp'] + off:.0f} (آخر {'قمة' if buy else 'قاع'})\n"
             f"صالح 5 ساعات. إلغيه إيلا سدات شمعة 15د {cancel} قبل ما يتنفذ.\n"
+            f"🕒 وقت الإشارة: {et} (نيويورك)")
+
+
+def cdaily_message(x, off):
+    et = pd.Timestamp(x["t"]).strftime("%H:%M")
+    buy = x["side"] == 1
+    name = "لندن: كسر مدى آسيا" if x["sig"] == "A" else "نيويورك: رجوع لـ VWAP"
+    return (f"🤖 Claude Daily ({name})\n"
+            f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {x['entry'] + off:.0f}\n"
+            f"الهدف: 🎯 {x['tp'] + off:.0f}\n"
+            f"وقف الخسارة: 🔴 {x['sl'] + off:.0f}\n"
+            f"الخروج: ⏰ {x['exit']}:00 نيويورك إيلا ما ضربش الهدف ولا الستوب\n"
             f"🕒 وقت الإشارة: {et} (نيويورك)")
 
 
@@ -397,6 +410,22 @@ def main():
         except Exception as e:
             print("smc failed:", type(e).__name__, e)
 
+    cdk = list(state.get("cdk") or [])
+    if result and CDAILY:
+        try:
+            import claude_daily_live
+            df_c = ga.get_data("15m", "59d")
+            sts = [x for x in claude_daily_live.detect(df_c, pd.Timestamp.now(tz="UTC")) if x["key"] not in cdk]
+            if sts:
+                last_close = float(df_c["close"].iloc[-1])
+                spot = spot_price() if SPOT_ADJUST else None
+                off = (spot - last_close) if spot is not None and abs(spot - last_close) <= 60 else 0.0
+                for x in sts:
+                    send(cdaily_message(x, off))
+                    cdk.append(x["key"])
+        except Exception as e:
+            print("claude daily failed:", type(e).__name__, e)
+
     ds = state.get("ds")
     if result and DAILY_SUMMARY:
         try:
@@ -411,7 +440,7 @@ def main():
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "smk": smk[-20:]}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "smk": smk[-20:], "cdk": cdk[-20:]}, f)
 
 
 if __name__ == "__main__":
