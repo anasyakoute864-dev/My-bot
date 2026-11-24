@@ -111,6 +111,7 @@ def trade_lost(tr, df, until=None):
 
 MAX_SIGNALS_DAY = int(os.getenv("MAX_SIGNALS_DAY", "0"))   # 0 = مطفي. أقصى عدد إشارات ديالنا فالنهار (توقيت نيويورك)
 DAILY_SUMMARY = os.getenv("DAILY_SUMMARY", "0") == "1"      # ملخص يومي فتليغرام (من 17:00 نيويورك)
+SWING = os.getenv("SWING", "0") == "1"                      # Claude Swing: سوينغ 1 ساعة (Donchian 20/10 شراء فقط)
 COOLDOWN_MIN = int(os.getenv("SIGNAL_COOLDOWN_MIN", "0"))   # 0 = مطفي. كيمنع إشارة فنفس الاتجاه من بعد أخرى داخل هاد المدة (ما كنزيدوش فنفس الحركة)
 
 
@@ -126,6 +127,27 @@ def recent_same_side(tracked, r, minutes):
     except Exception:
         return False
     return False
+
+
+def swing_messages(events, off):
+    """رسائل Claude Swing. off = الفرق بين الفوري وسعر الفيوتشرز (0 إلا ما كانش)"""
+    out = []
+    for ev in events:
+        et = pd.Timestamp(ev["t"]).tz_convert("America/New_York").strftime("%H:%M")
+        if ev["kind"] == "entry":
+            out.append("🧭 Claude Swing (سوينغ 1 ساعة)\n"
+                       f"شراء الذهب ⬆️ @ {ev['price'] + off:.0f}\n"
+                       f"وقف الخسارة: 🔴 {ev['sl'] + off:.0f} ({ev['risk']:.0f} نقطة)\n"
+                       "الخروج: غادي نصيفط ليك رسالة ملي تسد شمعة ساعة تحت أدنى 10 شموع، ولا ملي يضرب الستوب\n"
+                       f"🕒 وقت الإشارة: {et} (نيويورك)")
+        else:
+            pts = ev["price"] - ev["entry"]
+            why = "ضرب الستوب" if ev["reason"] == "stop" else "كسر أدنى 10 شموع"
+            out.append("🧭 Claude Swing: اخرج من الشراء\n"
+                       f"السبب: {why}\n"
+                       f"الخروج حوالي {ev['price'] + off:.0f} | النتيجة حوالي {pts:+.0f} نقطة\n"
+                       f"🕒 {et} (نيويورك)")
+    return out
 
 
 def day_trades(tracked, day):
@@ -329,6 +351,22 @@ def main():
         if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
             send(build_message(to_spot(result, ref)))
 
+    sw = state.get("sw")
+    if result and SWING:
+        try:
+            import swing_live
+            df_w = ga.get_data("1h", "60d")
+            evs, sw_new = swing_live.evaluate(df_w, sw, pd.Timestamp.now(tz="UTC"))
+            if evs:
+                last_close = float(df_w["close"].iloc[-1])
+                spot = spot_price() if SPOT_ADJUST else None
+                off = (spot - last_close) if spot is not None and abs(spot - last_close) <= 60 else 0.0
+                for m in swing_messages(evs, off):
+                    send(m)
+            sw = sw_new
+        except Exception as e:
+            print("swing failed:", type(e).__name__, e)
+
     ds = state.get("ds")
     if result and DAILY_SUMMARY:
         try:
@@ -343,7 +381,7 @@ def main():
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw}, f)
 
 
 if __name__ == "__main__":
