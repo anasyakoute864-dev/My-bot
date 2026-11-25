@@ -17,6 +17,7 @@ MAX_LOSSES_DAY = int(os.getenv("MAX_LOSSES_DAY", "0"))   # 0 = مطفي. بعد 
 
 
 def send(text):
+    print("SENT>>", text.replace("\n", " | ")[:600])   # أرشيف فاللوغ باش نقدرو نراجعو كل إشارة
     for i in range(0, len(text), 3900):
         r = requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
                           data={"chat_id": CHAT_ID, "text": text[i:i + 3900]}, timeout=20)
@@ -54,6 +55,27 @@ def spot_price():
         return None
 
 
+def futures_now(max_age_min=4):
+    """آخر إغلاق 1د ديال GC=F إلا كان طري (أقل من max_age_min دقايق) وإلا None"""
+    try:
+        import yfinance as yf
+        d = yf.download("GC=F", interval="1m", period="1d", auto_adjust=False, progress=False)
+        if d is None or len(d) == 0:
+            return None
+        if hasattr(d.columns, "levels"):
+            d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
+        t = pd.Timestamp(d.index[-1])
+        t = t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+        age = (pd.Timestamp.now(tz="UTC") - t).total_seconds() / 60 - 1
+        if age > max_age_min:
+            print(f"futures 1m stale ({age:.0f} min), using bar price")
+            return None
+        return float(d["Close"].iloc[-1])
+    except Exception as e:
+        print("futures_now failed:", type(e).__name__)
+        return None
+
+
 def to_spot(res, ref=None):
     """كيحول الدخول والستوب والأهداف من سعر الفيوتشرز (GC=F) لسعر الفوري (XAUUSD) بنفس الفرق"""
     if not SPOT_ADJUST or res.get("decision") != "trade":
@@ -61,7 +83,10 @@ def to_spot(res, ref=None):
     spot = spot_price()
     if spot is None:
         return res
-    off = spot - (ref if ref is not None else res.get("price", res["entry"]))   # الفرق بين الفوري وسعر الفيوتشرز الحالي
+    fut = futures_now()   # آخر سعر فيوتشرز طري (1د) باش الفرق ما يتلوثش بحركة السعر من إغلاق الشمعة
+    if fut is None:
+        fut = ref if ref is not None else res.get("price", res["entry"])
+    off = spot - fut      # الفرق الحقيقي (basis) بين الفوري والفيوتشرز
     if abs(off) > 60:  # فرق غير منطقي (بيانات غالطة): ما نبدلو والو
         print(f"spot offset {off:.1f} too large, ignored")
         return res
