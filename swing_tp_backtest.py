@@ -29,7 +29,7 @@ def run(tp_r):
             pos = {"e": e, "side": s, "sl": e - s * r, "tp": e + s * r * (tp_r or 0)}
     return tr
 
-for tp in (0, 0.5, 0.75, 1.0, 1.5, 2.0):
+for tp in (0.05, 0.1, 0.15, 0.2, 0.3, 0.5):
     t = run(tp); v = [x[0] for x in t]
     if not v: print(tp, "no trades"); continue
     h = len(v) // 2
