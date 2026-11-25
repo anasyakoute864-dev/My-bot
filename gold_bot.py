@@ -165,6 +165,7 @@ def swing_messages(events, off, entry_off=None):
         if ev["kind"] == "entry":
             out.append("🧭 Claude Swing (سوينغ 1 ساعة)\n"
                        f"{'شراء' if buy else 'بيع'} الذهب {'⬆️' if buy else '⬇️'} @ {ev['price'] + off:.0f}\n"
+                       + (f"الهدف: 🎯 {ev['tp'] + off:.0f}\n" if ev.get("tp") is not None else "") +
                        f"وقف الخسارة: 🔴 {ev['sl'] + off:.0f} ({ev['risk']:.0f} نقطة)\n"
                        f"الخروج: غادي نصيفط ليك رسالة ملي تسد شمعة ساعة {'تحت أدنى' if buy else 'فوق أعلى'} 10 شموع، ولا ملي يضرب الستوب\n"
                        f"🕒 وقت الإشارة: {et} (نيويورك)")
@@ -172,7 +173,7 @@ def swing_messages(events, off, entry_off=None):
             pts = (ev["price"] - ev["entry"]) * (1 if buy else -1)
             eo = off if entry_off is None else entry_off
             xprice = ev["entry"] + eo + pts * (1 if buy else -1)   # نفس فرق الدخول، باش الرقمين يتناسبو
-            why = "ضرب الستوب" if ev["reason"] == "stop" else ("كسر أدنى 10 شموع" if buy else "كسر أعلى 10 شموع")
+            why = "ضرب الستوب" if ev["reason"] == "stop" else "ضرب الهدف 🎯" if ev["reason"] == "tp" else ("كسر أدنى 10 شموع" if buy else "كسر أعلى 10 شموع")
             out.append(f"🧭 Claude Swing: اخرج من {'الشراء' if buy else 'البيع'}\n"
                        f"السبب: {why}\n"
                        f"الخروج حوالي {xprice:.0f} | النتيجة حوالي {pts:+.0f} نقطة\n"

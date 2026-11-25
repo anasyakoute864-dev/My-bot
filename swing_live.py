@@ -1,7 +1,10 @@
 """Claude Swing (فريم 1 ساعة): Donchian 20/10 شراء + بيع بفلتر اتجاه، ستوب 2×ATR20 (نفس regime_backtest.py).
 شراء: إغلاق فوق أعلى 20 شمعة فاتجاه صاعد (close>EMA200 و EMA50>EMA200). بيع: إغلاق تحت أدنى 20 شمعة فاتجاه نازل.
 خروج: الستوب ولا إغلاق عكس أعلى/أدنى 10 شموع. كنخدمو غير على الشموع المسدودة."""
+import os
 import pandas as pd
+
+TP_R = float(os.getenv("SWING_TP_R", "1.0"))   # هدف = TP_R × المخاطرة (0 = بلا هدف)
 
 N, X, ATRN, MULT = 20, 10, 20, 2.0
 STEP = pd.Timedelta(hours=1)
@@ -37,6 +40,11 @@ def evaluate(df, pos, now, stale_min=90):
                 events.append({"kind": "exit", "side": side, "reason": "stop", "price": px, "entry": pos["entry"], "t": b["tc"]})
                 pos, exited_bar = None, b["tc"]
                 break
+            tp = pos.get("tp")
+            if tp is not None and ((side == 1 and b["high"] >= tp) or (side == -1 and b["low"] <= tp)):
+                events.append({"kind": "exit", "side": side, "reason": "tp", "price": float(tp), "entry": pos["entry"], "t": b["tc"]})
+                pos, exited_bar = None, b["tc"]
+                break
             chan = (side == 1 and pd.notna(b["loX"]) and b["close"] < b["loX"]) or (side == -1 and pd.notna(b["hiX"]) and b["close"] > b["hiX"])
             if chan:
                 events.append({"kind": "exit", "side": side, "reason": "channel", "price": float(b["close"]), "entry": pos["entry"], "t": b["tc"]})
@@ -51,6 +59,9 @@ def evaluate(df, pos, now, stale_min=90):
                 e = float(last["close"])
                 risk = MULT * float(last["atr20"])
                 sl = e - side * risk
+                tp = e + side * risk * TP_R if TP_R > 0 else None
                 pos = {"t": last["tc"].isoformat(), "entry": e, "sl": sl, "side": side}
-                events.append({"kind": "entry", "side": side, "price": e, "sl": sl, "risk": risk, "t": last["tc"]})
+                if tp is not None:
+                    pos["tp"] = tp
+                events.append({"kind": "entry", "side": side, "price": e, "sl": sl, "risk": risk, "tp": tp, "t": last["tc"]})
     return events, pos
