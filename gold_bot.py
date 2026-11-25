@@ -417,26 +417,31 @@ def main():
         if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
             send(build_message(to_spot(result, ref)))
 
-    sw = state.get("sw")
-    if result and SWING:
+    sw_states = {}
+    for key, tpr, tag in (("sw", None, ""), ("sw2", 0.5, " ⚡ هدف قريب 0.5R")):
+        cur = state.get(key)
+        sw_states[key] = cur
+        if not (result and SWING):
+            continue
         try:
             import swing_live
             df_w = ga.get_data("1h", "60d")
-            evs, sw_new = swing_live.evaluate(df_w, sw, pd.Timestamp.now(tz="UTC"))
+            evs, sw_new = swing_live.evaluate(df_w, cur, pd.Timestamp.now(tz="UTC"), tp_r=tpr)
             if evs:
                 spot = spot_price() if SPOT_ADJUST else None
                 fut = futures_now()
                 if fut is None:
                     fut = ref if ref is not None else float(df_w["close"].iloc[-1])
                 off = (spot - fut) if spot is not None and abs(spot - fut) <= 60 else 0.0
-                old_off = (sw or {}).get("off", off)
-                for ev_, m in zip(evs, swing_messages(evs, off, old_off)):
-                    send(m)
+                old_off = (cur or {}).get("off", off)
+                for m in swing_messages(evs, off, old_off):
+                    send(m.replace("Claude Swing", "Claude Swing" + tag, 1) if tag else m)
                 if sw_new:
                     sw_new = dict(sw_new, off=off) if any(e["kind"] == "entry" for e in evs) else dict(sw_new, off=old_off)
-            sw = sw_new
+            sw_states[key] = sw_new
         except Exception as e:
             print("swing failed:", type(e).__name__, e)
+    sw, sw2 = sw_states["sw"], sw_states["sw2"]
 
     smk = list(state.get("smk") or [])
     if result and SMC:
@@ -484,7 +489,7 @@ def main():
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "smk": smk[-20:], "cdk": cdk[-20:]}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "sw2": sw2, "smk": smk[-20:], "cdk": cdk[-20:]}, f)
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ def prep(df):
     return d.reset_index(drop=True)
 
 
-def evaluate(df, pos, now, stale_min=90):
+def evaluate(df, pos, now, stale_min=90, tp_r=None):
     """يرجع (events, pos_جديد). event: {"kind": "entry"|"exit", "side": 1|-1, ...}"""
     d = prep(df)
     events, exited_bar = [], None
@@ -59,7 +59,7 @@ def evaluate(df, pos, now, stale_min=90):
                 e = float(last["close"])
                 risk = MULT * float(last["atr20"])
                 sl = e - side * risk
-                tp = e + side * risk * TP_R if TP_R > 0 else None
+                tp = e + side * risk * (TP_R if tp_r is None else tp_r) if (TP_R if tp_r is None else tp_r) > 0 else None
                 pos = {"t": last["tc"].isoformat(), "entry": e, "sl": sl, "side": side}
                 if tp is not None:
                     pos["tp"] = tp
