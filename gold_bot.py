@@ -156,7 +156,7 @@ def recent_same_side(tracked, r, minutes):
     return False
 
 
-def swing_messages(events, off):
+def swing_messages(events, off, entry_off=None):
     """رسائل Claude Swing. off = الفرق بين الفوري وسعر الفيوتشرز (0 إلا ما كانش)"""
     out = []
     for ev in events:
@@ -170,10 +170,12 @@ def swing_messages(events, off):
                        f"🕒 وقت الإشارة: {et} (نيويورك)")
         else:
             pts = (ev["price"] - ev["entry"]) * (1 if buy else -1)
+            eo = off if entry_off is None else entry_off
+            xprice = ev["entry"] + eo + pts * (1 if buy else -1)   # نفس فرق الدخول، باش الرقمين يتناسبو
             why = "ضرب الستوب" if ev["reason"] == "stop" else ("كسر أدنى 10 شموع" if buy else "كسر أعلى 10 شموع")
             out.append(f"🧭 Claude Swing: اخرج من {'الشراء' if buy else 'البيع'}\n"
                        f"السبب: {why}\n"
-                       f"الخروج حوالي {ev['price'] + off:.0f} | النتيجة حوالي {pts:+.0f} نقطة\n"
+                       f"الخروج حوالي {xprice:.0f} | النتيجة حوالي {pts:+.0f} نقطة\n"
                        f"🕒 {et} (نيويورك)")
     return out
 
@@ -421,11 +423,16 @@ def main():
             df_w = ga.get_data("1h", "60d")
             evs, sw_new = swing_live.evaluate(df_w, sw, pd.Timestamp.now(tz="UTC"))
             if evs:
-                last_close = float(df_w["close"].iloc[-1])
                 spot = spot_price() if SPOT_ADJUST else None
-                off = (spot - last_close) if spot is not None and abs(spot - last_close) <= 60 else 0.0
-                for m in swing_messages(evs, off):
+                fut = futures_now()
+                if fut is None:
+                    fut = ref if ref is not None else float(df_w["close"].iloc[-1])
+                off = (spot - fut) if spot is not None and abs(spot - fut) <= 60 else 0.0
+                old_off = (sw or {}).get("off", off)
+                for ev_, m in zip(evs, swing_messages(evs, off, old_off)):
                     send(m)
+                if sw_new:
+                    sw_new = dict(sw_new, off=off) if any(e["kind"] == "entry" for e in evs) else dict(sw_new, off=old_off)
             sw = sw_new
         except Exception as e:
             print("swing failed:", type(e).__name__, e)
