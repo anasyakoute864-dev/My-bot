@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| ClaudeSwingEA.mq5 - Claude Swing أوتوماتيك (شراء + بيع، فريم 1h)   |
+//| ClaudeSwingEA.mq5 - Claude Swing أوتوماتيك + تعدد الدخول (1h)      |
 //| نفس منطق البوت: Donchian 20/10 + فلتر اتجاه EMA50/200 + ستوب      |
 //| 2×ATR20 + هدف TP_R × المخاطرة. كيخدم غير على الشموع المسدودة.      |
 //| حطو على شارت XAUUSD فريم H1. جربو ديمو أولاً. ما كاينش ضمان ربح.  |
@@ -14,7 +14,9 @@ input int    N           = 20;     // قناة الدخول
 input int    X           = 10;     // قناة الخروج
 input int    AtrN        = 20;
 input double StopATR     = 2.0;    // الستوب = StopATR × ATR
-input double TP_R        = 1.0;    // الهدف = TP_R × المخاطرة (0 = بلا هدف، خروج بالقناة غير)
+input double TP_R        = 0.0;    // هدف للصفقة الأولى = TP_R × المخاطرة (0 = بلا هدف: أحسن فالباكتيست مع تعدد الدخول)
+input int    MaxUnits    = 2;      // أقصى عدد صفقات فنفس الاتجاه (1 = بلا تعدد). حساب Hedging خاصو
+input double AddATR      = 0.5;    // نزيد صفقة ملي السعر يمشي هاد المرة × ATR من آخر دخول
 input double MaxSpread   = 0.60;   // ما ندخلش إلا السبريد (دولار) كبر
 input ulong  Magic       = 770022;
 
@@ -33,12 +35,25 @@ int OnInit()
    return INIT_SUCCEEDED;
 }
 
-bool GetPos(long &type, ulong &ticket)
+int Units(long &type, double &lastOpen, double &firstOpen, double &firstSl)
+{
+   int n = 0; datetime tFirst = D'2099.01.01', tLast = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      if(PositionGetSymbol(i) != _Symbol || PositionGetInteger(POSITION_MAGIC) != (long)Magic) continue;
+      n++; type = PositionGetInteger(POSITION_TYPE);
+      datetime t = (datetime)PositionGetInteger(POSITION_TIME);
+      if(t < tFirst) { tFirst = t; firstOpen = PositionGetDouble(POSITION_PRICE_OPEN); firstSl = PositionGetDouble(POSITION_SL); }
+      if(t >= tLast) { tLast = t; lastOpen = PositionGetDouble(POSITION_PRICE_OPEN); }
+   }
+   return n;
+}
+
+void CloseAll()
 {
    for(int i = PositionsTotal() - 1; i >= 0; i--)
       if(PositionGetSymbol(i) == _Symbol && PositionGetInteger(POSITION_MAGIC) == (long)Magic)
-      { type = PositionGetInteger(POSITION_TYPE); ticket = PositionGetInteger(POSITION_TICKET); return true; }
-   return false;
+         trade.PositionClose(PositionGetInteger(POSITION_TICKET));
 }
 
 double HighestHigh(int from, int cnt) { double v = -1e18; for(int i = from; i < from + cnt; i++) v = MathMax(v, iHigh(_Symbol, PERIOD_H1, i)); return v; }
@@ -69,15 +84,26 @@ void OnTick()
    double c = iClose(_Symbol, PERIOD_H1, 1);
    if(Bars(_Symbol, PERIOD_H1) < 260) return;
 
-   long type; ulong tk;
-   if(GetPos(type, tk))
-   {   // خروج بالقناة: إغلاق تحت أدنى X شموع (شراء) / فوق أعلى X شموع (بيع). الستوب والهدف عند الوسيط.
-      if(type == POSITION_TYPE_BUY  && c < LowestLow(2, X))  trade.PositionClose(tk);
-      if(type == POSITION_TYPE_SELL && c > HighestHigh(2, X)) trade.PositionClose(tk);
+   long type = -1; double lastOpen = 0, firstOpen = 0, firstSl = 0;
+   int n = Units(type, lastOpen, firstOpen, firstSl);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK), bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(n > 0)
+   {   // خروج بالقناة: إغلاق كل الصفقات. الستوب (والهدف) عند الوسيط.
+      if(type == POSITION_TYPE_BUY  && c < LowestLow(2, X))  { CloseAll(); return; }
+      if(type == POSITION_TYPE_SELL && c > HighestHigh(2, X)) { CloseAll(); return; }
+      // تعدد الدخول: نزيد صفقة ملي السعر يتقدم AddATR×ATR من آخر دخول
+      double atr0 = MathAbs(firstOpen - firstSl) / StopATR;
+      if(n < MaxUnits && atr0 > 0 && ask - bid <= MaxSpread)
+      {
+         double risk = StopATR * atr0;
+         if(type == POSITION_TYPE_BUY && c - lastOpen >= AddATR * atr0)
+            trade.Buy(CalcLots(risk), _Symbol, ask, NormalizeDouble(ask - risk, _Digits), 0, "ClaudeSwing+");
+         if(type == POSITION_TYPE_SELL && lastOpen - c >= AddATR * atr0)
+            trade.Sell(CalcLots(risk), _Symbol, bid, NormalizeDouble(bid + risk, _Digits), 0, "ClaudeSwing+");
+      }
       return;
    }
 
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK), bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    if(ask - bid > MaxSpread) return;
 
    bool up = c > e200[0] && e50[0] > e200[0];
