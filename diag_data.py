@@ -1,16 +1,10 @@
-import requests, pandas as pd
-tests = {
- "stooq15": "https://stooq.com/q/d/l/?s=xauusd&i=15",
- "binance": "https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=3",
- "binance_us": "https://api.binance.us/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=3",
- "okx": "https://www.okx.com/api/v5/market/candles?instId=XAUT-USDT&bar=15m&limit=3",
- "bybit": "https://api.bybit.com/v5/market/kline?category=spot&symbol=XAUTUSDT&interval=15&limit=3",
- "kraken": "https://api.kraken.com/0/public/OHLC?pair=PAXGUSD&interval=15",
- "coinbase": "https://api.exchange.coinbase.com/products/PAXG-USD/candles?granularity=900",
-}
-for k, u in tests.items():
-    try:
-        r = requests.get(u, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-        print("T", k, r.status_code, r.text[:260].replace("\n", " | "))
-    except Exception as e:
-        print("T", k, "err", type(e).__name__)
+import gold_analyzer as ga, pandas as pd
+for iv in ("15m", "1h", "1d"):
+    d = ga.get_data(iv, "59d")
+    print("T", iv, "rows", len(d), "fallback", ga.USING_FALLBACK, "last", d["time"].iloc[-1], "close", round(float(d["close"].iloc[-1]), 2), "atr", round(float(d["atr"].iloc[-1]), 2))
+print("T ticker", ga.okx_last_price())
+import io, contextlib
+buf = io.StringIO()
+with contextlib.redirect_stdout(buf):
+    res = ga.analyze_recent()
+print("T analyze", res[-1].get("decision"), res[-1].get("price"), "n", len(res))

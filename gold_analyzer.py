@@ -74,8 +74,74 @@ def prepare(df, interval):
     return df.dropna(subset=["atr"]).reset_index(drop=True)
 
 
+USING_FALLBACK = False   # True = Yahoo واقف وكنخدمو بمصدر بديل (OKX XAUT)
+OKX_BAR = {"5m": "5m", "15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}
+OKX_BARS = {"5m": 1500, "15m": 1500, "1h": 900, "4h": 500, "1d": 400}
+
+
+def market_expected_open(now=None):
+    """السوق (ذهب) مفروض مفتوح: الاثنين-الخميس كامل، الجمعة قبل 17:00 ET، الأحد من 18:00 ET"""
+    t = (now or pd.Timestamp.now(tz="UTC")).tz_convert("America/New_York")
+    wd = t.weekday()
+    return wd <= 3 or (wd == 4 and t.hour < 17) or (wd == 6 and t.hour >= 18)
+
+
+def okx_data(interval):
+    """شموع الذهب (XAUT-USDT) من OKX، 24/7، بحال شكل yfinance"""
+    import requests
+    bar, want = OKX_BAR[interval], OKX_BARS[interval]
+    rows, after = [], None
+    while len(rows) < want:
+        url = "https://www.okx.com/api/v5/market/history-candles" if after else "https://www.okx.com/api/v5/market/candles"
+        p = {"instId": "XAUT-USDT", "bar": bar, "limit": 100 if after else 300}
+        if after:
+            p["after"] = after
+        r = requests.get(url, params=p, timeout=20).json()
+        data = r.get("data") or []
+        if not data:
+            break
+        rows += data
+        after = data[-1][0]
+        if len(data) < 100:
+            break
+    df = pd.DataFrame(rows, columns=["ts", "Open", "High", "Low", "Close", "Volume", "vc", "vq", "cf"]).drop_duplicates("ts")
+    df = df[["ts", "Open", "High", "Low", "Close", "Volume"]].astype(float)
+    df.index = pd.to_datetime(df["ts"], unit="ms", utc=True).dt.tz_convert("America/New_York")
+    df.index.name = "Datetime"
+    return df.drop(columns="ts").sort_index()
+
+
+def okx_last_price():
+    try:
+        import requests
+        r = requests.get("https://www.okx.com/api/v5/market/ticker", params={"instId": "XAUT-USDT"}, timeout=10).json()
+        return float(r["data"][0]["last"])
+    except Exception:
+        return None
+
+
 def get_data(interval, period):
-    df = yf.download(SYMBOL, interval=interval, period=period, auto_adjust=False, progress=False)
+    global USING_FALLBACK
+    df = None
+    try:
+        df = yf.download(SYMBOL, interval=interval, period=period, auto_adjust=False, progress=False)
+    except Exception as e:
+        print("yfinance failed:", type(e).__name__)
+    if interval != "1d" and interval in OKX_BAR:
+        stale = df is None or len(df) == 0
+        if not stale:
+            last = df.index[-1]
+            last = last.tz_localize("UTC") if last.tzinfo is None else last.tz_convert("UTC")
+            stale = (pd.Timestamp.now(tz="UTC") - last) > pd.Timedelta(minutes=180) and market_expected_open()
+        if stale:
+            USING_FALLBACK = True
+    if USING_FALLBACK and interval in OKX_BAR:
+        try:
+            print(f"⚠️ Yahoo stale -> OKX XAUT ({interval})")
+            df = okx_data(interval)
+        except Exception as e:
+            print("okx fallback failed:", type(e).__name__)
+            USING_FALLBACK = False
     return prepare(df, interval)
 
 

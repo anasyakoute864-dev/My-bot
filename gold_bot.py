@@ -57,6 +57,8 @@ def spot_price():
 
 def futures_now(max_age_min=4):
     """آخر إغلاق 1د ديال GC=F إلا كان طري (أقل من max_age_min دقايق) وإلا None"""
+    if getattr(ga, "USING_FALLBACK", False):
+        return ga.okx_last_price()
     try:
         import yfinance as yf
         d = yf.download("GC=F", interval="1m", period="1d", auto_adjust=False, progress=False)
