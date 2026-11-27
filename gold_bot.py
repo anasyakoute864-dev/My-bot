@@ -419,6 +419,12 @@ def main():
         if not new_sigs and not crs and ALWAYS_SEND:   # التشغيل اليدوي: سطر قصير للتأكيد
             send(build_message(to_spot(result, ref)))
 
+    fb = state.get("fb")
+    if ga.USING_FALLBACK:
+        today = pd.Timestamp.now(tz="America/New_York").strftime("%Y-%m-%d")
+        if fb != today:
+            send("⚠️ مصدر البيانات (Yahoo) واقف. البوت خدام دابا بمصدر بديل (OKX، ذهب XAUT). الأسعار كتتحول للسبوت تلقائياً، ولكن خاصها مراقبة.")
+            fb = today
     sw_states = {}
     for key, tpr, tag in (("sw", None, ""), ("sw2", 0.5, " ⚡ هدف قريب 0.5R")):
         cur = state.get(key)
@@ -491,7 +497,7 @@ def main():
 
     # نحفظو الحالة بعد الإرسال، باش إيلا فشل تيليغرام نعاودو نرسلو فالمرة الجاية
     with open(STATE, "w") as f:
-        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "sw2": sw2, "smk": smk[-20:], "cdk": cdk[-20:]}, f)
+        json.dump({"tr": (tr if result else (state.get("tr") or []))[-30:], "sk": sk[-20:], "cr": cr_sent if cr_sent is not None else state.get("cr"), "ds": ds, "sw": sw, "sw2": sw2, "fb": fb, "smk": smk[-20:], "cdk": cdk[-20:]}, f)
 
 
 if __name__ == "__main__":
