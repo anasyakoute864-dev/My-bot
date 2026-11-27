@@ -1,10 +1,16 @@
-import yfinance as yf, pandas as pd
-print("now", pd.Timestamp.now(tz="UTC"))
-for sym in ("XAUUSD=X", "MGC=F", "GC=F", "GCZ26.CMX", "GCG27.CMX", "XAU=X", "GLD"):
-    for iv, per in (("15m", "2d"),):
-        try:
-            d = yf.download(sym, interval=iv, period=per, auto_adjust=False, progress=False)
-            if hasattr(d.columns, "levels"): d.columns = [c[0] for c in d.columns]
-            print("SYM", sym, iv, "rows", len(d), "last", d.index[-1] if len(d) else None, "close", float(d["Close"].iloc[-1]) if len(d) else None)
-        except Exception as e:
-            print("SYM", sym, "err", type(e).__name__, str(e)[:80])
+import requests, pandas as pd
+tests = {
+ "stooq15": "https://stooq.com/q/d/l/?s=xauusd&i=15",
+ "binance": "https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=3",
+ "binance_us": "https://api.binance.us/api/v3/klines?symbol=PAXGUSDT&interval=15m&limit=3",
+ "okx": "https://www.okx.com/api/v5/market/candles?instId=XAUT-USDT&bar=15m&limit=3",
+ "bybit": "https://api.bybit.com/v5/market/kline?category=spot&symbol=XAUTUSDT&interval=15&limit=3",
+ "kraken": "https://api.kraken.com/0/public/OHLC?pair=PAXGUSD&interval=15",
+ "coinbase": "https://api.exchange.coinbase.com/products/PAXG-USD/candles?granularity=900",
+}
+for k, u in tests.items():
+    try:
+        r = requests.get(u, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        print("T", k, r.status_code, r.text[:260].replace("\n", " | "))
+    except Exception as e:
+        print("T", k, "err", type(e).__name__)
